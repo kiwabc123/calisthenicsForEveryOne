@@ -138,6 +138,45 @@ export function getHipAngle(
 }
 
 /**
+ * Calculate hip deviation from the shoulder-ankle line
+ * Positive value = hip is below the line (sagging)
+ * Negative value = hip is above the line (piking)
+ * Returns deviation as a fraction of body length
+ */
+export function getHipDeviation(
+  landmarks: PoseLandmark[],
+  side: 'left' | 'right'
+): number | null {
+  const shoulderIdx = side === 'left' ? POSE_LANDMARKS.LEFT_SHOULDER : POSE_LANDMARKS.RIGHT_SHOULDER;
+  const hipIdx = side === 'left' ? POSE_LANDMARKS.LEFT_HIP : POSE_LANDMARKS.RIGHT_HIP;
+  const ankleIdx = side === 'left' ? POSE_LANDMARKS.LEFT_ANKLE : POSE_LANDMARKS.RIGHT_ANKLE;
+
+  const shoulder = getLandmark(landmarks, shoulderIdx);
+  const hip = getLandmark(landmarks, hipIdx);
+  const ankle = getLandmark(landmarks, ankleIdx);
+
+  if (!shoulder || !hip || !ankle) {
+    return null;
+  }
+
+  // Calculate expected Y position of hip if body was perfectly straight
+  // Using linear interpolation between shoulder and ankle
+  const t = (hip.x - shoulder.x) / (ankle.x - shoulder.x);
+  const expectedY = shoulder.y + t * (ankle.y - shoulder.y);
+  
+  // Calculate deviation (positive = hip below line = sagging in push-up position)
+  // Note: In screen coordinates, Y increases downward
+  const deviation = hip.y - expectedY;
+  
+  // Normalize by body length
+  const bodyLength = Math.sqrt(
+    Math.pow(ankle.x - shoulder.x, 2) + Math.pow(ankle.y - shoulder.y, 2)
+  );
+  
+  return bodyLength > 0 ? deviation / bodyLength : null;
+}
+
+/**
  * Check if landmark is visible enough
  */
 export function isLandmarkVisible(

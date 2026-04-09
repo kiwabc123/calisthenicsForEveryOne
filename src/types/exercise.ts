@@ -55,7 +55,7 @@ export interface FormAnalysis {
 }
 
 export interface FormFeedback {
-  type: 'error' | 'warning' | 'success';
+  type: 'error' | 'warning' | 'success' | 'info';
   message: string;
   bodyPart?: string;
 }

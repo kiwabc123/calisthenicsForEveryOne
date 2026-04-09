@@ -6,6 +6,7 @@ import FeedbackPanel from '@/components/FeedbackPanel';
 import RepCounter from '@/components/RepCounter';
 import { PoseLandmark, FormAnalysis } from '@/types/exercise';
 import { analyzePushUpForm, PushUpRepCounter } from '@/lib/pushUpAnalyzer';
+import { getElbowAngle } from '@/lib/poseDetection';
 
 export default function PushUpPage() {
   const [isActive, setIsActive] = useState(false);
@@ -16,12 +17,23 @@ export default function PushUpPage() {
   const repCounterRef = useRef(new PushUpRepCounter());
 
   const handlePoseDetected = useCallback((landmarks: PoseLandmark[]) => {
-    // Analyze the push-up form
-    const formAnalysis = analyzePushUpForm(landmarks);
+    // Get elbow angles for smoothing and rep validation
+    const leftElbow = getElbowAngle(landmarks, 'left');
+    const rightElbow = getElbowAngle(landmarks, 'right');
+    const avgElbow = leftElbow !== null && rightElbow !== null 
+      ? (leftElbow + rightElbow) / 2 
+      : leftElbow ?? rightElbow;
+    
+    // Get smoothed values from rep counter
+    const smoothedElbow = repCounterRef.current.getSmoothedElbow(avgElbow);
+    const elbowVelocity = repCounterRef.current.getElbowVelocity();
+
+    // Analyze the push-up form with smoothed data
+    const formAnalysis = analyzePushUpForm(landmarks, smoothedElbow, elbowVelocity ?? undefined);
     setAnalysis(formAnalysis);
 
-    // Update rep count
-    const newRep = repCounterRef.current.update(formAnalysis.phase);
+    // Update rep count with elbow angle for validation
+    const newRep = repCounterRef.current.update(formAnalysis.phase, avgElbow);
     if (newRep) {
       setRepCount(repCounterRef.current.getCount());
     }
