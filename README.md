@@ -1,36 +1,128 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FitForm - AI Pose Detection Fitness App 🏋️
+
+Real-time exercise form analysis using AI pose detection. Get instant feedback on your workout form and track your progress.
+
+![Next.js](https://img.shields.io/badge/Next.js-15-black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
+![MediaPipe](https://img.shields.io/badge/MediaPipe-Pose-green)
+
+## Features ✨
+
+### 🎯 Real-time Form Analysis
+- **AI Pose Detection** - Uses MediaPipe Pose to detect body landmarks
+- **Instant Feedback** - Get real-time corrections on your form
+- **Score System** - Weighted scoring (Body: 40%, Elbow: 40%, Smoothness: 20%)
+
+### 📊 Smart Rep Counting
+- **Hysteresis-based Phase Detection** - Prevents jitter between up/down phases
+- **Rep Validation** - Only counts reps with proper depth
+- **Quality Tracking** - Distinguishes between "Perfect" and "Good" reps
+
+### 🎥 Workout Recording
+- **Auto-record** - Automatically records your workout session
+- **Video Playback** - Review your form after workout
+- **Download** - Save videos in WebM format
+
+### 📱 Mobile-Friendly
+- **Landscape Mode** - Optimized fullscreen workout view
+- **Overlay UI** - See feedback without looking away from camera
+- **Responsive Design** - Works on desktop and mobile
+
+## Supported Exercises
+
+| Exercise | Status | Features |
+|----------|--------|----------|
+| Push-up | ✅ Ready | Full form analysis, rep counting, video recording |
+| More coming soon... | 🚧 | - |
+
+## Tech Stack
+
+- **Framework**: Next.js 15 (App Router)
+- **Language**: TypeScript
+- **Pose Detection**: MediaPipe Pose
+- **Styling**: Tailwind CSS
+- **PWA**: Service Worker ready
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+- Node.js 18+
+- npm/yarn/pnpm
+
+### Installation
 
 ```bash
+# Clone the repository
+git clone https://github.com/kiwabc123/calisthenicsForEveryOne.git
+cd calisthenicsForEveryOne
+
+# Install dependencies
+npm install
+
+# Run development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) with your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Usage
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. **Navigate** to Push-up exercise page
+2. **Set target** reps (5, 10, 15, 20, or 30)
+3. **Click** "เริ่มออกกำลังกาย" to start
+4. **Position** your camera to see your body from the side
+5. **Click** "เต็มจอ" for landscape fullscreen mode
+6. **Perform** push-ups and get real-time feedback
+7. **Click** "หยุด" to finish and download your workout video
 
-## Learn More
+## Form Analysis Details
 
-To learn more about Next.js, take a look at the following resources:
+### Push-up Checkpoints
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Check | Good Form | Feedback |
+|-------|-----------|----------|
+| Body Alignment | 160°-180° | Straight body line |
+| Elbow (Down) | 70°-110° | Proper depth |
+| Elbow (Up) | 150°+ | Full extension |
+| Hip Position | No sag/pike | Core engaged |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Scoring Weights
+- **Body Alignment**: 40% - Core stability is crucial
+- **Elbow Position**: 40% - Proper depth and extension
+- **Smoothness**: 20% - Controlled movement
 
-## Deploy on Vercel
+## Project Structure
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+src/
+├── app/
+│   ├── page.tsx              # Home page
+│   └── exercise/
+│       └── push-up/
+│           └── page.tsx      # Push-up workout page
+├── components/
+│   ├── PoseCamera.tsx        # Camera + pose detection
+│   ├── FeedbackPanel.tsx     # Form feedback display
+│   └── RepCounter.tsx        # Rep counter component
+├── lib/
+│   ├── poseDetection.ts      # Pose utilities
+│   └── pushUpAnalyzer.ts     # Push-up form analysis
+└── types/
+    └── exercise.ts           # TypeScript types
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Contributing
+
+Contributions are welcome! Feel free to:
+- Add new exercises
+- Improve form detection algorithms
+- Enhance UI/UX
+- Fix bugs
+
+## License
+
+MIT
+
+---
+
+Made with 💪 for fitness enthusiasts
