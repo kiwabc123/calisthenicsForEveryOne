@@ -108,7 +108,31 @@ const PoseCamera = forwardRef<PoseCameraRef, PoseCameraProps>(
 
   const initializePose = useCallback(async () => {
     try {
-      // Dynamic import for MediaPipe (client-side only)
+      // Step 1: Check if getUserMedia is supported
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Browser ไม่รองรับการเข้าถึงกล้อง (getUserMedia)');
+      }
+      
+      // Step 2: Test camera access directly first
+      console.log('Testing camera access...');
+      let testStream: MediaStream | null = null;
+      try {
+        testStream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: 'user'
+          } 
+        });
+        console.log('Camera access granted!', testStream.getVideoTracks());
+        // Stop the test stream, MediaPipe will create its own
+        testStream.getTracks().forEach(track => track.stop());
+      } catch (cameraTestErr: any) {
+        console.error('Camera test failed:', cameraTestErr);
+        throw cameraTestErr; // Re-throw to trigger specific error handling
+      }
+      
+      // Step 3: Dynamic import for MediaPipe (client-side only)
       const { Pose } = await import('@mediapipe/pose');
       const { Camera } = await import('@mediapipe/camera_utils');
       const { drawConnectors, drawLandmarks } = await import('@mediapipe/drawing_utils');
@@ -177,24 +201,80 @@ const PoseCamera = forwardRef<PoseCameraRef, PoseCameraProps>(
 
       poseRef.current = pose;
 
-      // Setup camera - request landscape orientation for better view
-      const camera = new Camera(videoRef.current, {
-        onFrame: async () => {
-          if (videoRef.current && poseRef.current) {
-            await poseRef.current.send({ image: videoRef.current });
+      // Setup camera with fallback
+      let camera: any = null;
+      
+      // Try different camera configurations
+      const cameraConfigs: Array<{ facingMode?: 'user' | 'environment' }> = [
+        { facingMode: 'user' },           // Front camera (most reliable)
+        { facingMode: 'environment' },    // Back camera
+        { facingMode: undefined },        // Default
+      ];
+      
+      for (const config of cameraConfigs) {
+        try {
+          camera = new Camera(videoRef.current, {
+            onFrame: async () => {
+              if (videoRef.current && poseRef.current) {
+                await poseRef.current.send({ image: videoRef.current });
+              }
+            },
+            width: 1280,
+            height: 720,
+            facingMode: config.facingMode,
+          });
+          
+          await camera.start();
+          console.log('Camera started with config:', config);
+          break; // Success, exit loop
+        } catch (cameraErr) {
+          console.warn('Camera config failed:', config, cameraErr);
+          if (camera) {
+            try { camera.stop(); } catch {}
           }
-        },
-        width: 1280,  // Higher resolution for better detection
-        height: 720,
-        facingMode: 'environment', // Prefer back camera on mobile
-      });
+          camera = null;
+        }
+      }
+      
+      if (!camera) {
+        throw new Error('All camera configurations failed');
+      }
 
       cameraRef.current = camera;
-      await camera.start();
       setIsLoading(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to initialize pose detection:', err);
-      setError('ไม่สามารถเปิดกล้องได้ กรุณาอนุญาตการเข้าถึงกล้อง');
+      console.error('Error name:', err?.name);
+      console.error('Error message:', err?.message);
+      
+      // More specific error messages
+      let errorMessage = 'ไม่สามารถเปิดกล้องได้ ';
+      if (err instanceof Error || err?.name) {
+        const errorName = err?.name || '';
+        const errorMsg = err?.message || '';
+        
+        if (errorName === 'NotAllowedError' || errorMsg.includes('Permission denied')) {
+          errorMessage += 'กรุณาอนุญาตการเข้าถึงกล้องในการตั้งค่า Browser';
+        } else if (errorName === 'NotFoundError' || errorMsg.includes('Requested device not found')) {
+          errorMessage += 'ไม่พบกล้องในอุปกรณ์นี้';
+        } else if (errorName === 'NotReadableError' || errorMsg.includes('Could not start video source')) {
+          errorMessage += 'กล้องถูกใช้งานอยู่โดยแอปอื่น';
+        } else if (errorName === 'OverconstrainedError') {
+          errorMessage += 'กล้องไม่รองรับการตั้งค่าที่ต้องการ';
+        } else if (errorName === 'AbortError') {
+          errorMessage += 'การเข้าถึงกล้องถูกยกเลิก';
+        } else if (errorName === 'SecurityError') {
+          errorMessage += 'ไม่อนุญาตให้เข้าถึงกล้อง (ต้องใช้ HTTPS หรือ localhost)';
+        } else if (errorMsg.includes('getUserMedia')) {
+          errorMessage += 'Browser ไม่รองรับการเข้าถึงกล้อง';
+        } else {
+          errorMessage += `(${errorName || errorMsg || 'Unknown error'}) กรุณาลองใหม่อีกครั้ง`;
+        }
+      } else {
+        errorMessage += 'กรุณาอนุญาตการเข้าถึงกล้อง';
+      }
+      
+      setError(errorMessage);
       setIsLoading(false);
     }
   }, [onPoseDetected, fullscreen]);
@@ -217,17 +297,29 @@ const PoseCamera = forwardRef<PoseCameraRef, PoseCameraProps>(
   if (error) {
     return (
       <div className={`flex items-center justify-center bg-gray-900 rounded-lg ${fullscreen ? 'h-screen' : 'h-96'}`}>
-        <div className="text-center text-red-400">
-          <p className="text-lg mb-2">⚠️ {error}</p>
+        <div className="text-center text-red-400 p-6 max-w-md">
+          <div className="text-4xl mb-4">📷</div>
+          <p className="text-lg mb-4">⚠️ {error}</p>
+          
+          <div className="text-left text-gray-400 text-sm mb-4 bg-gray-800 rounded-lg p-4">
+            <p className="font-semibold text-gray-300 mb-2">วิธีแก้ไข:</p>
+            <ul className="list-disc list-inside space-y-1">
+              <li>ตรวจสอบว่าอนุญาตกล้องแล้วใน Browser</li>
+              <li>กดไอคอน 🔒 ที่ URL bar แล้วเปิดกล้อง</li>
+              <li>ลอง refresh หน้าเว็บ</li>
+              <li>ปิดแอปอื่นที่ใช้กล้องอยู่</li>
+            </ul>
+          </div>
+          
           <button
             onClick={() => {
               setError(null);
               setIsLoading(true);
               initializePose();
             }}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
           >
-            ลองอีกครั้ง
+            🔄 ลองอีกครั้ง
           </button>
         </div>
       </div>

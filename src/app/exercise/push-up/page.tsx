@@ -14,16 +14,25 @@ export default function PushUpPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [lastRepQuality, setLastRepQuality] = useState<'good' | 'partial' | 'none'>('none');
   const [isRecording, setIsRecording] = useState(false);
+  console.log(isRecording);
+  
   const [recordedVideo, setRecordedVideo] = useState<Blob | null>(null);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [workoutDuration, setWorkoutDuration] = useState(0);
   const [finalRepCount, setFinalRepCount] = useState(0);
+  const [uploadedVideo, setUploadedVideo] = useState<string | null>(null);
+  const [isAnalyzingUpload, setIsAnalyzingUpload] = useState(false);
   
   const repCounterRef = useRef(new PushUpRepCounter());
   const containerRef = useRef<HTMLDivElement>(null);
   const poseCameraRef = useRef<PoseCameraRef>(null);
   const startTimeRef = useRef<number>(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadVideoRef = useRef<HTMLVideoElement>(null);
+  const uploadCanvasRef = useRef<HTMLCanvasElement>(null);
+  const poseAnalyzerRef = useRef<any>(null);
+  const animationFrameRef = useRef<number | null>(null);
 
   // Listen for orientation changes
   useEffect(() => {
@@ -85,6 +94,154 @@ export default function PushUpPage() {
     setShowVideoModal(true);
   }, []);
 
+  // Upload video handler
+  const handleVideoUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.type.startsWith('video/')) {
+      const url = URL.createObjectURL(file);
+      setUploadedVideo(url);
+      // Reset counters for upload analysis
+      repCounterRef.current.reset();
+      setRepCount(0);
+      setAnalysis(null);
+      setLastRepQuality('none');
+    }
+  }, []);
+
+  // Cleanup uploaded video URL
+  useEffect(() => {
+    return () => {
+      if (uploadedVideo) {
+        URL.revokeObjectURL(uploadedVideo);
+      }
+    };
+  }, [uploadedVideo]);
+
+  // Initialize pose for uploaded video analysis
+  const initializeUploadAnalysis = useCallback(async () => {
+    if (!uploadVideoRef.current || !uploadCanvasRef.current) return;
+    
+    setIsAnalyzingUpload(true);
+    
+    try {
+      const { Pose } = await import('@mediapipe/pose');
+      const { drawConnectors, drawLandmarks } = await import('@mediapipe/drawing_utils');
+      
+      const pose = new Pose({
+        locateFile: (file) => {
+          return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+        },
+      });
+
+      pose.setOptions({
+        modelComplexity: 1,
+        smoothLandmarks: true,
+        enableSegmentation: false,
+        smoothSegmentation: false,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5,
+      });
+
+      pose.onResults((results: any) => {
+        const canvas = uploadCanvasRef.current;
+        const video = uploadVideoRef.current;
+        const ctx = canvas?.getContext('2d');
+        
+        if (!canvas || !ctx || !video) return;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        if (results.poseLandmarks) {
+          const landmarks: PoseLandmark[] = results.poseLandmarks.map((lm: any) => ({
+            x: lm.x,
+            y: lm.y,
+            z: lm.z,
+            visibility: lm.visibility,
+          }));
+
+          // Analyze pose
+          const leftElbow = getElbowAngle(landmarks, 'left');
+          const rightElbow = getElbowAngle(landmarks, 'right');
+          const avgElbow = leftElbow !== null && rightElbow !== null 
+            ? (leftElbow + rightElbow) / 2 
+            : leftElbow ?? rightElbow;
+          
+          const smoothedElbow = repCounterRef.current.getSmoothedElbow(avgElbow);
+          const elbowVelocity = repCounterRef.current.getElbowVelocity();
+          const formAnalysis = analyzePushUpForm(landmarks, smoothedElbow, elbowVelocity ?? undefined);
+          setAnalysis(formAnalysis);
+
+          const newRep = repCounterRef.current.update(formAnalysis.phase, avgElbow);
+          if (newRep) {
+            setRepCount(repCounterRef.current.getCount());
+            setLastRepQuality(repCounterRef.current.getLastRepQuality());
+          }
+
+          // Draw skeleton
+          const POSE_CONNECTIONS_LOCAL: [number, number][] = [
+            [11, 12], [11, 13], [13, 15], [12, 14], [14, 16],
+            [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28],
+          ];
+          
+          drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS_LOCAL, {
+            color: '#00FF00',
+            lineWidth: 2,
+          });
+
+          drawLandmarks(ctx, results.poseLandmarks, {
+            color: '#FF0000',
+            lineWidth: 1,
+            radius: 3,
+          });
+        }
+      });
+
+      poseAnalyzerRef.current = pose;
+      
+      // Start analyzing frames
+      const analyzeFrame = async () => {
+        const video = uploadVideoRef.current;
+        if (video && !video.paused && !video.ended && poseAnalyzerRef.current) {
+          await poseAnalyzerRef.current.send({ image: video });
+        }
+        if (!video?.ended && !video?.paused) {
+          animationFrameRef.current = requestAnimationFrame(analyzeFrame);
+        }
+      };
+      
+      uploadVideoRef.current.play();
+      analyzeFrame();
+      
+    } catch (err) {
+      console.error('Failed to initialize upload analysis:', err);
+      setIsAnalyzingUpload(false);
+    }
+  }, []);
+
+  // Cleanup upload analysis
+  const cleanupUploadAnalysis = useCallback(() => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+    if (poseAnalyzerRef.current) {
+      poseAnalyzerRef.current.close();
+      poseAnalyzerRef.current = null;
+    }
+  }, []);
+
+  const handleCloseUpload = useCallback(() => {
+    cleanupUploadAnalysis();
+    if (uploadedVideo) {
+      URL.revokeObjectURL(uploadedVideo);
+    }
+    setUploadedVideo(null);
+    setIsAnalyzingUpload(false);
+    setRepCount(0);
+    setAnalysis(null);
+    repCounterRef.current.reset();
+  }, [uploadedVideo, cleanupUploadAnalysis]);
+
   const handleStart = () => {
     repCounterRef.current.reset();
     setRepCount(0);
@@ -107,6 +264,9 @@ export default function PushUpPage() {
     // Stop recording first
     if (poseCameraRef.current?.isRecording) {
       poseCameraRef.current.stopRecording();
+    } else {
+      // Show modal anyway even without video
+      setShowVideoModal(true);
     }
     
     setIsActive(false);
@@ -244,7 +404,7 @@ export default function PushUpPage() {
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       {/* Video Download Modal */}
-      {showVideoModal && recordedVideo && (
+      {showVideoModal && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
           <div className="bg-gray-800 rounded-2xl max-w-lg w-full p-6">
             <h2 className="text-2xl font-bold mb-4 text-center">🎉 Workout สำเร็จ!</h2>
@@ -263,35 +423,53 @@ export default function PushUpPage() {
               </div>
             </div>
             
-            {/* Video Preview */}
-            <div className="mb-4">
-              <video
-                src={URL.createObjectURL(recordedVideo)}
-                controls
-                className="w-full rounded-lg"
-                style={{ maxHeight: '300px' }}
-              />
-            </div>
-            
-            {/* Actions */}
-            <div className="flex flex-col gap-3">
-              <button
-                onClick={handleDownloadVideo}
-                className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold flex items-center justify-center gap-2"
-              >
-                📥 ดาวน์โหลดวิดีโอ
-              </button>
-              <button
-                onClick={() => setShowVideoModal(false)}
-                className="w-full py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-semibold"
-              >
-                ปิด
-              </button>
-            </div>
-            
-            <p className="text-gray-500 text-sm text-center mt-4">
-              วิดีโอจะถูกบันทึกในรูปแบบ WebM
-            </p>
+            {/* Video Preview - only if video exists */}
+            {recordedVideo ? (
+              <>
+                <div className="mb-4">
+                  <video
+                    src={URL.createObjectURL(recordedVideo)}
+                    controls
+                    className="w-full rounded-lg"
+                    style={{ maxHeight: '300px' }}
+                  />
+                </div>
+                
+                {/* Actions */}
+                <div className="flex flex-col gap-3">
+                  <button
+                    onClick={handleDownloadVideo}
+                    className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold flex items-center justify-center gap-2"
+                  >
+                    📥 ดาวน์โหลดวิดีโอ
+                  </button>
+                  <button
+                    onClick={() => setShowVideoModal(false)}
+                    className="w-full py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-semibold"
+                  >
+                    ปิด
+                  </button>
+                </div>
+                
+                <p className="text-gray-500 text-sm text-center mt-4">
+                  วิดีโอจะถูกบันทึกในรูปแบบ WebM
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="mb-4 bg-gray-900/50 rounded-lg p-6 text-center">
+                  <div className="text-4xl mb-2">📷</div>
+                  <p className="text-gray-400">ไม่มีวิดีโอ (กล้องไม่ได้บันทึก)</p>
+                </div>
+                
+                <button
+                  onClick={() => setShowVideoModal(false)}
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold"
+                >
+                  ตกลง
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -320,7 +498,71 @@ export default function PushUpPage() {
           {/* Camera section */}
           <div className="md:col-span-2">
             <div className="bg-gray-800 rounded-lg p-4">
-              {isActive ? (
+              {/* Uploaded Video Analysis Mode */}
+              {uploadedVideo ? (
+                <div className="relative">
+                  {/* Hidden video for analysis */}
+                  <video
+                    ref={uploadVideoRef}
+                    src={uploadedVideo}
+                    className="hidden"
+                    playsInline
+                    onEnded={() => setIsAnalyzingUpload(false)}
+                  />
+                  
+                  {/* Canvas for display */}
+                  <canvas
+                    ref={uploadCanvasRef}
+                    width={640}
+                    height={480}
+                    className="w-full h-auto rounded-lg transform scale-x-[-1]"
+                  />
+                  
+                  {/* Overlay UI */}
+                  <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-sm rounded-lg px-3 py-2 flex items-center gap-2">
+                    <span className="text-3xl font-bold">{repCount}</span>
+                    <span className="text-gray-400">ครั้ง</span>
+                  </div>
+                  
+                  <div className="absolute top-2 right-2">
+                    <PhaseIndicator phase={analysis?.phase || 'transition'} small />
+                  </div>
+                  
+                  {analysis && (
+                    <div className="absolute bottom-2 left-2 right-2">
+                      <ScoreBar score={analysis.score} />
+                    </div>
+                  )}
+                  
+                  {/* Controls */}
+                  <div className="flex justify-center gap-4 mt-4">
+                    {!isAnalyzingUpload ? (
+                      <button
+                        onClick={initializeUploadAnalysis}
+                        className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                      >
+                        ▶️ เริ่มวิเคราะห์
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          uploadVideoRef.current?.pause();
+                          setIsAnalyzingUpload(false);
+                        }}
+                        className="px-6 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors"
+                      >
+                        ⏸️ หยุดชั่วคราว
+                      </button>
+                    )}
+                    <button
+                      onClick={handleCloseUpload}
+                      className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                    >
+                      ✕ ปิด
+                    </button>
+                  </div>
+                </div>
+              ) : isActive ? (
                 <div className="relative">
                   <PoseCamera
                     ref={poseCameraRef}
@@ -393,6 +635,24 @@ export default function PushUpPage() {
                     >
                       🎥 เริ่มออกกำลังกาย
                     </button>
+                    
+                    {/* Upload button */}
+                    <div className="mt-4 pt-4 border-t border-gray-700">
+                      <p className="text-gray-500 text-sm mb-2">หรือ</p>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="video/*"
+                        onChange={handleVideoUpload}
+                        className="hidden"
+                      />
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                      >
+                        📁 อัพโหลดวิดีโอ วิเคราะห์ Form
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
