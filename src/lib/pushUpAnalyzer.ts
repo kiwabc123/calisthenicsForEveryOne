@@ -30,7 +30,7 @@ export function analyzePushUpForm(landmarks: PoseLandmark[]): FormAnalysis {
   const feedback: FormFeedback[] = [];
   let totalScore = 0;
   let checkCount = 0;
-
+    
   // Check both sides and average
   const leftElbow = getElbowAngle(landmarks, 'left');
   const rightElbow = getElbowAngle(landmarks, 'right');

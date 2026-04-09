@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 390 844" width="390" height="844">
+  <rect width="390" height="844" fill="#111827"/>
+  <rect x="20" y="60" width="350" height="80" rx="10" fill="#1f2937"/>
+  <text x="195" y="110" font-size="24" text-anchor="middle" fill="white" font-family="system-ui">🏋️ Calisthenics</text>
+  <rect x="20" y="160" width="170" height="200" rx="10" fill="#374151"/>
+  <text x="105" y="270" font-size="40" text-anchor="middle">💪</text>
+  <text x="105" y="320" font-size="14" text-anchor="middle" fill="#9ca3af">Push-up</text>
+  <rect x="200" y="160" width="170" height="200" rx="10" fill="#374151"/>
+  <text x="285" y="270" font-size="40" text-anchor="middle">🏋️</text>
+  <text x="285" y="320" font-size="14" text-anchor="middle" fill="#9ca3af">Pull-up</text>
+  <rect x="20" y="380" width="170" height="200" rx="10" fill="#374151"/>
+  <text x="105" y="490" font-size="40" text-anchor="middle">🦵</text>
+  <text x="105" y="540" font-size="14" text-anchor="middle" fill="#9ca3af">Squat</text>
+  <rect x="200" y="380" width="170" height="200" rx="10" fill="#374151"/>
+  <text x="285" y="490" font-size="40" text-anchor="middle">🧘</text>
+  <text x="285" y="540" font-size="14" text-anchor="middle" fill="#9ca3af">Plank</text>
+</svg>
