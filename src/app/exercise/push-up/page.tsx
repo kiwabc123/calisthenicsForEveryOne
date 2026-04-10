@@ -14,7 +14,6 @@ export default function PushUpPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [lastRepQuality, setLastRepQuality] = useState<'good' | 'partial' | 'none'>('none');
   const [isRecording, setIsRecording] = useState(false);
-  console.log(isRecording);
   
   const [recordedVideo, setRecordedVideo] = useState<Blob | null>(null);
   const [showVideoModal, setShowVideoModal] = useState(false);
@@ -242,13 +241,19 @@ export default function PushUpPage() {
     repCounterRef.current.reset();
   }, [uploadedVideo, cleanupUploadAnalysis]);
 
-  const handleStart = () => {
+  const handleStart = (startFullscreen = false) => {
     repCounterRef.current.reset();
     setRepCount(0);
     setAnalysis(null);
     setLastRepQuality('none');
     setWorkoutDuration(0);
     setRecordedVideo(null);
+    
+    // Enter fullscreen mode FIRST if requested (before camera starts)
+    if (startFullscreen) {
+      setIsFullscreen(true);
+    }
+    
     setIsActive(true);
     setIsRecording(true);
     
@@ -274,15 +279,22 @@ export default function PushUpPage() {
     setIsRecording(false);
   };
 
+  const toggleFullscreen = () => {
+    // Warn user that toggling fullscreen may affect recording
+    if (isRecording) {
+      const confirmed = window.confirm(
+        'การเปลี่ยนโหมดเต็มจออาจทำให้วิดีโอหยุดบันทึก ต้องการดำเนินการต่อหรือไม่?'
+      );
+      if (!confirmed) return;
+    }
+    setIsFullscreen(!isFullscreen);
+  };
+
   const handleReset = () => {
     repCounterRef.current.reset();
     setRepCount(0);
     setAnalysis(null);
     setLastRepQuality('none');
-  };
-
-  const toggleFullscreen = () => {
-    setIsFullscreen(!isFullscreen);
   };
 
   const handleDownloadVideo = () => {
@@ -304,21 +316,32 @@ export default function PushUpPage() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Fullscreen workout mode
-  if (isActive && isFullscreen) {
-    return (
-      <div ref={containerRef} className="fixed inset-0 bg-black z-50">
-        {/* Camera fills entire screen */}
-        <PoseCamera
-          ref={poseCameraRef}
-          onPoseDetected={handlePoseDetected}
-          isActive={isActive}
-          fullscreen={true}
-          onRecordingComplete={handleRecordingComplete}
-        />
-        
-        {/* Overlay UI */}
-        <div className="absolute inset-0 pointer-events-none">
+  // Single return - PoseCamera persists across fullscreen toggle
+  return (
+    <div className="min-h-screen bg-gray-900 text-white">
+      {/* PERSISTENT CAMERA - always at root level, CSS changes based on fullscreen */}
+      {isActive && (
+        <div 
+          className={
+            isFullscreen 
+              ? 'fixed inset-0 z-40 bg-black' 
+              : 'contents'  // 'contents' makes this div invisible to layout
+          }
+        >
+          <PoseCamera
+            key="main-camera"  // Same key = same instance
+            ref={poseCameraRef}
+            onPoseDetected={handlePoseDetected}
+            isActive={isActive}
+            fullscreen={isFullscreen}
+            onRecordingComplete={handleRecordingComplete}
+          />
+        </div>
+      )}
+      
+      {/* Fullscreen Overlay UI */}
+      {isActive && isFullscreen && (
+        <div className="fixed inset-0 z-50 pointer-events-none">
           {/* Top bar with controls */}
           <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-start pointer-events-auto">
             <button
@@ -397,13 +420,7 @@ export default function PushUpPage() {
             </button>
           </div>
         </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-900 text-white">
-      {/* Video Download Modal */}
+      )}
       {showVideoModal && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
           <div className="bg-gray-800 rounded-2xl max-w-lg w-full p-6">
@@ -564,35 +581,42 @@ export default function PushUpPage() {
                 </div>
               ) : isActive ? (
                 <div className="relative">
-                  <PoseCamera
-                    ref={poseCameraRef}
-                    onPoseDetected={handlePoseDetected}
-                    isActive={isActive}
-                    onRecordingComplete={handleRecordingComplete}
-                  />
-                  
-                  {/* Mini overlay feedback */}
-                  <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-sm rounded-lg px-3 py-2 flex items-center gap-2">
-                    {isRecording && (
-                      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                    )}
-                    <span className="text-3xl font-bold">{repCount}</span>
-                    <span className="text-gray-400">/{targetReps}</span>
-                  </div>
-                  
-                  {/* Duration */}
-                  <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-sm rounded-lg px-3 py-1">
-                    <span className="text-white font-mono">{formatDuration(workoutDuration)}</span>
-                  </div>
-                  
-                  <div className="absolute top-2 right-2">
-                    <PhaseIndicator phase={analysis?.phase || 'transition'} small />
-                  </div>
-                  
-                  {analysis && (
-                    <div className="absolute bottom-2 left-2 right-2">
-                      <ScoreBar score={analysis.score} />
+                  {/* Camera is rendered at root level - show placeholder here */}
+                  {isFullscreen ? (
+                    <div className="aspect-video bg-gray-900 rounded-lg flex items-center justify-center">
+                      <p className="text-gray-400">กำลังแสดงแบบเต็มจอ...</p>
                     </div>
+                  ) : (
+                    /* Camera placeholder - actual camera is rendered at root level */
+                    <div className="aspect-video" />
+                  )}
+                  
+                  {/* Mini overlay feedback - only show when NOT fullscreen */}
+                  {!isFullscreen && (
+                    <>
+                      <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-sm rounded-lg px-3 py-2 flex items-center gap-2 z-10">
+                        {isRecording && (
+                          <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                        )}
+                        <span className="text-3xl font-bold">{repCount}</span>
+                        <span className="text-gray-400">/{targetReps}</span>
+                      </div>
+                      
+                      {/* Duration */}
+                      <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-sm rounded-lg px-3 py-1 z-10">
+                        <span className="text-white font-mono">{formatDuration(workoutDuration)}</span>
+                      </div>
+                      
+                      <div className="absolute top-2 right-2 z-10">
+                        <PhaseIndicator phase={analysis?.phase || 'transition'} small />
+                      </div>
+                      
+                      {analysis && (
+                        <div className="absolute bottom-2 left-2 right-2 z-10">
+                          <ScoreBar score={analysis.score} />
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               ) : (
@@ -629,12 +653,20 @@ export default function PushUpPage() {
                       </div>
                     </div>
 
-                    <button
-                      onClick={handleStart}
-                      className="px-8 py-3 bg-green-600 hover:bg-green-700 text-white text-lg font-semibold rounded-lg transition-colors"
-                    >
-                      🎥 เริ่มออกกำลังกาย
-                    </button>
+                    <div className="flex flex-col gap-2">
+                      <button
+                        onClick={() => handleStart(true)}
+                        className="px-8 py-3 bg-green-600 hover:bg-green-700 text-white text-lg font-semibold rounded-lg transition-colors"
+                      >
+                        🎥 เริ่มแบบเต็มจอ (แนะนำ)
+                      </button>
+                      <button
+                        onClick={() => handleStart(false)}
+                        className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded-lg transition-colors"
+                      >
+                        เริ่มแบบปกติ
+                      </button>
+                    </div>
                     
                     {/* Upload button */}
                     <div className="mt-4 pt-4 border-t border-gray-700">
@@ -658,13 +690,18 @@ export default function PushUpPage() {
               )}
 
               {/* Controls */}
-              {isActive && (
+              {isActive && !isFullscreen && (
                 <div className="flex justify-center gap-4 mt-4">
                   <button
                     onClick={toggleFullscreen}
-                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                    className={`px-6 py-2 rounded-lg transition-colors ${
+                      isRecording 
+                        ? 'bg-yellow-600 hover:bg-yellow-700 text-white' 
+                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                    }`}
                   >
-                    ⛶ เต็มจอ (Landscape)
+                    {isFullscreen ? '⛶ ย่อ' : '⛶ เต็มจอ'}
+                    {isRecording && ' ⚠️'}
                   </button>
                   <button
                     onClick={handleStop}

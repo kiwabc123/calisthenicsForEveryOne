@@ -60,7 +60,7 @@ export interface FormFeedback {
   bodyPart?: string;
 }
 
-export type ExercisePhase = 'up' | 'down' | 'hold' | 'transition';
+export type ExercisePhase = 'up' | 'down' | 'hold' | 'transition' | 'holding' | 'falling' | 'not-detected';
 
 // Rep counting
 export interface RepState {

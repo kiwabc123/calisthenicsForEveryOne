@@ -11,6 +11,16 @@ const exercises = [
     available: true,
   },
   {
+    id: 'handstand',
+    name: 'Handstand',
+    nameLocal: 'ยืนมือ',
+    emoji: '🤸',
+    difficulty: 'ยาก',
+    muscleGroups: ['ไหล่', 'แขน', 'แกนกลาง'],
+    available: true,
+    isTimeBased: true,
+  },
+  {
     id: 'pull-up',
     name: 'Pull-up',
     nameLocal: 'ดึงข้อ',
