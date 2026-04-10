@@ -3,12 +3,20 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import PoseCamera, { PoseCameraRef } from '@/components/PoseCamera';
 import { PoseLandmark, FormAnalysis } from '@/types/exercise';
-import { analyzeHandstandForm, HandstandTracker } from '@/lib/handstandAnalyzer';
+import { analyzeHandstandForm, HandstandTracker, HandstandVariation } from '@/lib/handstandAnalyzer';
+
+// Variation descriptions
+const VARIATIONS: { id: HandstandVariation; label: string; emoji: string; description: string }[] = [
+  { id: 'freestanding', label: 'ปกติ', emoji: '🤸', description: 'ไม่พิงอะไร' },
+  { id: 'wall', label: 'พิงกำแพง', emoji: '🧱', description: 'ใช้กำแพงช่วยค้ำยัน' },
+  { id: 'pike', label: 'ท่าง่าย', emoji: '🚴', description: 'Pike/Straddle เพื่อเริ่มต้น' },
+];
 
 export default function HandstandPage() {
   const [isActive, setIsActive] = useState(false);
   const [analysis, setAnalysis] = useState<FormAnalysis | null>(null);
   const [targetTime, setTargetTime] = useState<number>(30);
+  const [variation, setVariation] = useState<HandstandVariation>('freestanding');
   const [currentTime, setCurrentTime] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -42,7 +50,7 @@ export default function HandstandPage() {
   }, [isActive]);
 
   const handlePoseDetected = useCallback((landmarks: PoseLandmark[]) => {
-    const formAnalysis = analyzeHandstandForm(landmarks);
+    const formAnalysis = analyzeHandstandForm(landmarks, trackerRef.current.getVariation());
     setAnalysis(formAnalysis);
 
     // Check if should stop
@@ -58,6 +66,7 @@ export default function HandstandPage() {
 
   const handleStart = (startFullscreen = true) => {
     trackerRef.current.setTargetTime(targetTime);
+    trackerRef.current.setVariation(variation);
     trackerRef.current.reset();
     setCurrentTime(0);
     setAnalysis(null);
@@ -166,12 +175,18 @@ export default function HandstandPage() {
               ✕ จบ
             </button>
             
-            {isRecording && (
-              <div className="bg-red-600/80 backdrop-blur-sm rounded-lg px-3 py-1 flex items-center gap-2">
-                <div className="w-3 h-3 bg-red-300 rounded-full animate-pulse" />
-                <span className="text-white text-sm">REC</span>
-              </div>
-            )}
+            {/* Variation + Recording indicator */}
+            <div className="flex flex-col items-center gap-2">
+              <span className="bg-purple-600/80 backdrop-blur-sm text-white px-3 py-1 rounded-lg text-sm">
+                {VARIATIONS.find(v => v.id === variation)?.emoji} {VARIATIONS.find(v => v.id === variation)?.label}
+              </span>
+              {isRecording && (
+                <div className="bg-red-600/80 backdrop-blur-sm rounded-lg px-3 py-1 flex items-center gap-2">
+                  <div className="w-3 h-3 bg-red-300 rounded-full animate-pulse" />
+                  <span className="text-white text-sm">REC</span>
+                </div>
+              )}
+            </div>
             
             <button
               onClick={() => setIsFullscreen(false)}
@@ -243,6 +258,13 @@ export default function HandstandPage() {
               <div className="text-6xl mb-2">{getResultMessage().emoji}</div>
               <h2 className="text-2xl font-bold">{getResultMessage().title}</h2>
               <p className="text-gray-400">{getResultMessage().subtitle}</p>
+            </div>
+            
+            {/* Variation badge */}
+            <div className="flex justify-center mb-4">
+              <span className="bg-purple-600/30 text-purple-300 px-3 py-1 rounded-full text-sm">
+                {VARIATIONS.find(v => v.id === variation)?.emoji} {VARIATIONS.find(v => v.id === variation)?.label}
+              </span>
             </div>
             
             {/* Stats */}
@@ -358,7 +380,31 @@ export default function HandstandPage() {
                 <div className="aspect-video bg-gray-900 rounded-lg flex items-center justify-center">
                   <div className="text-center">
                     <div className="text-6xl mb-4">🤸</div>
-                    <p className="text-gray-400 mb-4">เลือกเวลาที่ต้องการฝึก</p>
+                    <p className="text-gray-400 mb-4">เลือกรูปแบบและเวลาที่ต้องการฝึก</p>
+                    
+                    {/* Variation selector */}
+                    <div className="mb-6">
+                      <label className="text-gray-400 text-sm block mb-3">
+                        รูปแบบ:
+                      </label>
+                      <div className="flex flex-wrap items-center justify-center gap-2">
+                        {VARIATIONS.map((v) => (
+                          <button
+                            key={v.id}
+                            onClick={() => setVariation(v.id)}
+                            className={`px-4 py-3 rounded-lg text-center transition-all ${
+                              variation === v.id
+                                ? 'bg-purple-600 text-white ring-2 ring-purple-400'
+                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                            }`}
+                          >
+                            <div className="text-2xl mb-1">{v.emoji}</div>
+                            <div className="font-medium">{v.label}</div>
+                            <div className="text-xs text-gray-400">{v.description}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                     
                     {/* Time selector */}
                     <div className="mb-6">

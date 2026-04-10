@@ -1,6 +1,9 @@
 import { PoseLandmark, FormAnalysis, FormFeedback } from '@/types/exercise';
 import { calculateAngle, getLandmark, POSE_LANDMARKS } from './poseDetection';
 
+// Handstand variation types
+export type HandstandVariation = 'freestanding' | 'wall' | 'pike';
+
 // Handstand form thresholds
 const THRESHOLDS = {
   // Body should be vertical (close to 180 degrees from wrist-shoulder-hip line)
@@ -18,12 +21,23 @@ const THRESHOLDS = {
   MIN_VISIBILITY: 0.4,
 };
 
-// Form quality thresholds
+// Form quality thresholds per variation
 const FORM_QUALITY = {
-  GOOD_MIN_SCORE: 70,
-  FAILED_MAX_SCORE: 40,
-  // Number of consecutive low-score frames before falling
-  FALL_DETECTION_FRAMES: 5,
+  freestanding: {
+    GOOD_MIN_SCORE: 70,
+    FAILED_MAX_SCORE: 40,
+    FALL_DETECTION_FRAMES: 5,
+  },
+  wall: {
+    GOOD_MIN_SCORE: 60, // More lenient for wall-assisted
+    FAILED_MAX_SCORE: 30,
+    FALL_DETECTION_FRAMES: 8, // More frames before failing
+  },
+  pike: {
+    GOOD_MIN_SCORE: 50, // Most lenient for pike
+    FAILED_MAX_SCORE: 25,
+    FALL_DETECTION_FRAMES: 10,
+  },
 };
 
 // Scoring weights
@@ -146,6 +160,27 @@ export function isInHandstandPosition(landmarks: PoseLandmark[]): boolean {
   return isInverted;
 }
 
+/**
+ * Check if person is in pike/straddle position (easier variation)
+ * Pike: hands on floor, hips up, feet on floor or elevated
+ */
+export function isInPikePosition(landmarks: PoseLandmark[]): boolean {
+  const leftWrist = getLandmark(landmarks, POSE_LANDMARKS.LEFT_WRIST, THRESHOLDS.MIN_VISIBILITY);
+  const leftShoulder = getLandmark(landmarks, POSE_LANDMARKS.LEFT_SHOULDER, THRESHOLDS.MIN_VISIBILITY);
+  const leftHip = getLandmark(landmarks, POSE_LANDMARKS.LEFT_HIP, THRESHOLDS.MIN_VISIBILITY);
+
+  if (!leftWrist || !leftShoulder || !leftHip) {
+    return false;
+  }
+
+  // Pike: wrists below shoulders, hips higher than shoulders (lower Y)
+  // More lenient than full handstand - hips just need to be elevated
+  const handsOnGround = leftWrist.y > leftShoulder.y;
+  const hipsElevated = leftHip.y < leftShoulder.y;
+  
+  return handsOnGround && hipsElevated;
+}
+
 function averageAngles(a: number | null, b: number | null): number | null {
   if (a === null && b === null) return null;
   if (a === null) return b;
@@ -155,23 +190,33 @@ function averageAngles(a: number | null, b: number | null): number | null {
 
 /**
  * Analyze handstand form from pose landmarks
+ * @param variation - The handstand variation being performed
  */
-export function analyzeHandstandForm(landmarks: PoseLandmark[]): FormAnalysis {
+export function analyzeHandstandForm(
+  landmarks: PoseLandmark[],
+  variation: HandstandVariation = 'freestanding'
+): FormAnalysis {
   const feedback: FormFeedback[] = [];
   let bodyScore = 0;
   let armScore = 0;
   let legScore = 0;
   let balanceScore = 0;
 
-  // Check if in handstand position
-  if (!isInHandstandPosition(landmarks)) {
+  // Check if in handstand position (more lenient for pike - allow partial inversion)
+  const inPosition = variation === 'pike' 
+    ? isInPikePosition(landmarks) 
+    : isInHandstandPosition(landmarks);
+    
+  if (!inPosition) {
     return {
       isCorrect: false,
       score: 0,
-      feedback: [{ type: 'info', message: 'ยังไม่อยู่ในท่า Handstand' }],
+      feedback: [{ type: 'info', message: variation === 'pike' ? 'ยังไม่อยู่ในท่า Pike' : 'ยังไม่อยู่ในท่า Handstand' }],
       phase: 'not-detected',
     };
   }
+
+  const qualityThresholds = FORM_QUALITY[variation];
 
   // 1. Body vertical alignment
   const leftBodyAngle = getBodyVerticalAngle(landmarks, 'left');
@@ -241,19 +286,39 @@ export function analyzeHandstandForm(landmarks: PoseLandmark[]): FormAnalysis {
     }
   }
 
-  // Calculate total score
-  const totalScore = Math.round(
-    bodyScore * SCORE_WEIGHTS.BODY_VERTICAL +
-    armScore * SCORE_WEIGHTS.ARM_POSITION +
-    legScore * SCORE_WEIGHTS.LEG_POSITION +
-    balanceScore * SCORE_WEIGHTS.BALANCE
-  );
+  // Calculate total score - adjust weights based on variation
+  let totalScore: number;
+  
+  if (variation === 'pike') {
+    // Pike focuses more on arm position, less on body vertical
+    totalScore = Math.round(
+      bodyScore * 0.20 +
+      armScore * 0.40 +
+      legScore * 0.15 +
+      balanceScore * 0.25
+    );
+  } else if (variation === 'wall') {
+    // Wall can be less strict on balance
+    totalScore = Math.round(
+      bodyScore * 0.40 +
+      armScore * 0.30 +
+      legScore * 0.20 +
+      balanceScore * 0.10
+    );
+  } else {
+    totalScore = Math.round(
+      bodyScore * SCORE_WEIGHTS.BODY_VERTICAL +
+      armScore * SCORE_WEIGHTS.ARM_POSITION +
+      legScore * SCORE_WEIGHTS.LEG_POSITION +
+      balanceScore * SCORE_WEIGHTS.BALANCE
+    );
+  }
 
-  // Determine phase
-  const phase: HandstandPhase = totalScore >= FORM_QUALITY.FAILED_MAX_SCORE ? 'holding' : 'falling';
+  // Determine phase based on variation thresholds
+  const phase: HandstandPhase = totalScore >= qualityThresholds.FAILED_MAX_SCORE ? 'holding' : 'falling';
 
   return {
-    isCorrect: totalScore >= FORM_QUALITY.GOOD_MIN_SCORE,
+    isCorrect: totalScore >= qualityThresholds.GOOD_MIN_SCORE,
     score: totalScore,
     feedback,
     phase,
@@ -273,13 +338,23 @@ export class HandstandTracker {
   private hasTimedOut: boolean = false;
   private hasFailed: boolean = false;
   private bestHoldTime: number = 0;
+  private variation: HandstandVariation = 'freestanding';
 
-  constructor(targetTimeSeconds: number = 30) {
-    this.targetTime = targetTimeSeconds * 1000; // Convert to milliseconds
+  constructor(targetTimeSeconds: number = 30, variation: HandstandVariation = 'freestanding') {
+    this.targetTime = targetTimeSeconds * 1000;
+    this.variation = variation;
   }
 
   setTargetTime(seconds: number): void {
     this.targetTime = seconds * 1000;
+  }
+
+  setVariation(variation: HandstandVariation): void {
+    this.variation = variation;
+  }
+
+  getVariation(): HandstandVariation {
+    return this.variation;
   }
 
   /**
@@ -306,10 +381,11 @@ export class HandstandTracker {
       this.startTime = now;
     }
 
-    // Check for form failure
-    if (analysis.score < FORM_QUALITY.FAILED_MAX_SCORE) {
+    // Check for form failure based on variation thresholds
+    const thresholds = FORM_QUALITY[this.variation];
+    if (analysis.score < thresholds.FAILED_MAX_SCORE) {
       this.lowScoreFrames++;
-      if (this.lowScoreFrames >= FORM_QUALITY.FALL_DETECTION_FRAMES && !this.hasFailed) {
+      if (this.lowScoreFrames >= thresholds.FALL_DETECTION_FRAMES && !this.hasFailed) {
         this.hasFailed = true;
         this.totalHoldTime += now - this.startTime;
         this.bestHoldTime = Math.max(this.bestHoldTime, this.totalHoldTime);
