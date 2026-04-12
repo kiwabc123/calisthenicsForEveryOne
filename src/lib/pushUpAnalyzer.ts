@@ -1,6 +1,9 @@
 import { PoseLandmark, FormAnalysis, FormFeedback, ExercisePhase, RepState } from '@/types/exercise';
 import { getElbowAngle, getBodyAlignment, getHipDeviation } from './poseDetection';
 
+// Push-up variation types
+export type PushUpVariation = 'standard' | 'knee' | 'incline' | 'close' | 'wide';
+
 // Push-up form thresholds
 const THRESHOLDS = {
   // Elbow angle when down (bent)
@@ -14,6 +17,36 @@ const THRESHOLDS = {
   BODY_ALIGNMENT_MAX: 180,
   // Hip deviation threshold (positive = sagging, negative = piking)
   HIP_DEVIATION_THRESHOLD: 0.05, // as fraction of body length
+};
+
+// Form thresholds per variation
+const VARIATION_THRESHOLDS: Record<PushUpVariation, typeof THRESHOLDS> = {
+  standard: THRESHOLDS,
+  knee: {
+    ...THRESHOLDS,
+    // More lenient body alignment for knee push-ups
+    BODY_ALIGNMENT_MIN: 150,
+    HIP_DEVIATION_THRESHOLD: 0.07,
+  },
+  incline: {
+    ...THRESHOLDS,
+    // Less depth required for incline
+    ELBOW_DOWN_MIN: 80,
+    ELBOW_DOWN_MAX: 120,
+    BODY_ALIGNMENT_MIN: 155,
+  },
+  close: {
+    ...THRESHOLDS,
+    // Tighter elbow angle for diamond push-ups
+    ELBOW_DOWN_MIN: 60,
+    ELBOW_DOWN_MAX: 100,
+  },
+  wide: {
+    ...THRESHOLDS,
+    // Wider angle for wide push-ups
+    ELBOW_DOWN_MIN: 80,
+    ELBOW_DOWN_MAX: 120,
+  },
 };
 
 // Phase detection with hysteresis to prevent jitter
@@ -69,16 +102,21 @@ export class AngleSmoothing {
 
 /**
  * Analyze push-up form from pose landmarks
+ * @param variation - The push-up variation being performed
  */
 export function analyzePushUpForm(
   landmarks: PoseLandmark[],
   smoothedElbow?: number | null,
-  elbowVelocity?: number | null
+  elbowVelocity?: number | null,
+  variation: PushUpVariation = 'standard'
 ): FormAnalysis {
   const feedback: FormFeedback[] = [];
   let bodyScore = 0;
   let elbowScore = 0;
   let smoothnessScore = 100; // Start with perfect, deduct for issues
+  
+  // Get thresholds for this variation
+  const thresholds = VARIATION_THRESHOLDS[variation];
     
   // Check both sides and average
   const leftElbow = getElbowAngle(landmarks, 'left');
@@ -100,7 +138,7 @@ export function analyzePushUpForm(
 
   // ========== Body Alignment Check (40% weight) ==========
   if (avgBody !== null && avgHipDeviation !== null) {
-    if (avgBody >= THRESHOLDS.BODY_ALIGNMENT_MIN) {
+    if (avgBody >= thresholds.BODY_ALIGNMENT_MIN) {
       bodyScore = 100;
       feedback.push({
         type: 'success',
@@ -109,9 +147,9 @@ export function analyzePushUpForm(
       });
     } else {
       // Body is not straight - check if piking or sagging
-      if (avgHipDeviation < -THRESHOLDS.HIP_DEVIATION_THRESHOLD) {
+      if (avgHipDeviation < -thresholds.HIP_DEVIATION_THRESHOLD) {
         // Piking
-        if (avgHipDeviation < -THRESHOLDS.HIP_DEVIATION_THRESHOLD * 2) {
+        if (avgHipDeviation < -thresholds.HIP_DEVIATION_THRESHOLD * 2) {
           bodyScore = 40;
           feedback.push({
             type: 'error',
@@ -126,9 +164,9 @@ export function analyzePushUpForm(
             bodyPart: 'hip',
           });
         }
-      } else if (avgHipDeviation > THRESHOLDS.HIP_DEVIATION_THRESHOLD) {
+      } else if (avgHipDeviation > thresholds.HIP_DEVIATION_THRESHOLD) {
         // Sagging
-        if (avgHipDeviation > THRESHOLDS.HIP_DEVIATION_THRESHOLD * 2) {
+        if (avgHipDeviation > thresholds.HIP_DEVIATION_THRESHOLD * 2) {
           bodyScore = 30;
           feedback.push({
             type: 'error',
@@ -154,8 +192,8 @@ export function analyzePushUpForm(
     }
   } else if (avgBody !== null) {
     // Fallback without hip deviation
-    bodyScore = avgBody >= THRESHOLDS.BODY_ALIGNMENT_MIN ? 100 : 70;
-    if (avgBody < THRESHOLDS.BODY_ALIGNMENT_MIN) {
+    bodyScore = avgBody >= thresholds.BODY_ALIGNMENT_MIN ? 100 : 70;
+    if (avgBody < thresholds.BODY_ALIGNMENT_MIN) {
       feedback.push({
         type: 'warning',
         message: 'พยายามรักษาลำตัวให้ตรง',
@@ -173,28 +211,28 @@ export function analyzePushUpForm(
   // ========== Elbow Position Check (40% weight) ==========
   if (avgElbow !== null) {
     if (phase === 'down') {
-      if (avgElbow >= THRESHOLDS.ELBOW_DOWN_MIN && avgElbow <= THRESHOLDS.ELBOW_DOWN_MAX) {
+      if (avgElbow >= thresholds.ELBOW_DOWN_MIN && avgElbow <= thresholds.ELBOW_DOWN_MAX) {
         elbowScore = 100;
         feedback.push({
           type: 'success',
           message: 'ลงลึกพอดี',
           bodyPart: 'elbow',
         });
-      } else if (avgElbow > THRESHOLDS.ELBOW_DOWN_MAX + 20) {
+      } else if (avgElbow > thresholds.ELBOW_DOWN_MAX + 20) {
         elbowScore = 40;
         feedback.push({
           type: 'error',
           message: 'ลงให้ลึกกว่านี้มาก',
           bodyPart: 'elbow',
         });
-      } else if (avgElbow > THRESHOLDS.ELBOW_DOWN_MAX) {
+      } else if (avgElbow > thresholds.ELBOW_DOWN_MAX) {
         elbowScore = 60;
         feedback.push({
           type: 'warning',
           message: 'ลงให้ลึกกว่านี้',
           bodyPart: 'elbow',
         });
-      } else if (avgElbow < THRESHOLDS.ELBOW_DOWN_MIN) {
+      } else if (avgElbow < thresholds.ELBOW_DOWN_MIN) {
         elbowScore = 85;
         feedback.push({
           type: 'info',
@@ -205,14 +243,14 @@ export function analyzePushUpForm(
         elbowScore = 90;
       }
     } else if (phase === 'up') {
-      if (avgElbow >= THRESHOLDS.ELBOW_UP_MIN) {
+      if (avgElbow >= thresholds.ELBOW_UP_MIN) {
         elbowScore = 100;
         feedback.push({
           type: 'success',
           message: 'ยืดแขนได้ดี',
           bodyPart: 'elbow',
         });
-      } else if (avgElbow < THRESHOLDS.ELBOW_UP_MIN - 20) {
+      } else if (avgElbow < thresholds.ELBOW_UP_MIN - 20) {
         elbowScore = 50;
         feedback.push({
           type: 'error',

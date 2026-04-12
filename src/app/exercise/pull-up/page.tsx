@@ -3,24 +3,22 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import PoseCamera, { PoseCameraRef } from '@/components/PoseCamera';
 import { PoseLandmark, FormAnalysis } from '@/types/exercise';
-import { analyzePushUpForm, PushUpRepCounter, PushUpVariation } from '@/lib/pushUpAnalyzer';
-import { getElbowAngle } from '@/lib/poseDetection';
+import { analyzePullUpForm, PullUpRepCounter, PullUpVariation, getElbowAngle } from '@/lib/pullUpAnalyzer';
 
 // Variation descriptions
-const VARIATIONS: { id: PushUpVariation; label: string; emoji: string; description: string }[] = [
-  { id: 'standard', label: 'ปกติ', emoji: '💪', description: 'Push-up พื้นฐาน' },
-  { id: 'knee', label: 'บนเข่า', emoji: '🦵', description: 'ง่ายกว่า เหมาะสำหรับเริ่มต้น' },
-  { id: 'incline', label: 'มือสูง', emoji: '🛋️', description: 'วางมือบนที่สูง ง่ายกว่า' },
-  { id: 'close', label: 'มือชิด', emoji: '💎', description: 'Diamond เน้น Triceps' },
-  { id: 'wide', label: 'มือกว้าง', emoji: '🦅', description: 'เน้นอก' },
+const VARIATIONS: { id: PullUpVariation; label: string; emoji: string; description: string }[] = [
+  { id: 'standard', label: 'ปกติ', emoji: '💪', description: 'Pull-up พื้นฐาน หันหลังมือออก' },
+  { id: 'chinup', label: 'Chin-up', emoji: '🔄', description: 'หันหลังมือเข้า ง่ายกว่า' },
+  { id: 'wide', label: 'กว้าง', emoji: '🦅', description: 'จับบาร์กว้าง เน้นหลัง' },
+  { id: 'neutral', label: 'Neutral', emoji: '🤝', description: 'จับขนาน เน้นแขน' },
 ];
 
-export default function PushUpPage() {
+export default function PullUpPage() {
   const [isActive, setIsActive] = useState(false);
   const [analysis, setAnalysis] = useState<FormAnalysis | null>(null);
   const [repCount, setRepCount] = useState(0);
   const [targetReps, setTargetReps] = useState<number>(10);
-  const [variation, setVariation] = useState<PushUpVariation>('standard');
+  const [variation, setVariation] = useState<PullUpVariation>('standard');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [lastRepQuality, setLastRepQuality] = useState<'good' | 'partial' | 'none'>('none');
   const [isRecording, setIsRecording] = useState(false);
@@ -29,33 +27,11 @@ export default function PushUpPage() {
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [workoutDuration, setWorkoutDuration] = useState(0);
   const [finalRepCount, setFinalRepCount] = useState(0);
-  const [uploadedVideo, setUploadedVideo] = useState<string | null>(null);
-  const [isAnalyzingUpload, setIsAnalyzingUpload] = useState(false);
   
-  const repCounterRef = useRef(new PushUpRepCounter());
-  const containerRef = useRef<HTMLDivElement>(null);
+  const repCounterRef = useRef(new PullUpRepCounter());
   const poseCameraRef = useRef<PoseCameraRef>(null);
   const startTimeRef = useRef<number>(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const uploadVideoRef = useRef<HTMLVideoElement>(null);
-  const uploadCanvasRef = useRef<HTMLCanvasElement>(null);
-  const poseAnalyzerRef = useRef<any>(null);
-  const animationFrameRef = useRef<number | null>(null);
-
-  // Listen for orientation changes
-  useEffect(() => {
-    const handleResize = () => {
-      if (isActive && window.innerWidth > window.innerHeight) {
-        setIsFullscreen(true);
-      }
-    };
-    
-    window.addEventListener('resize', handleResize);
-    handleResize();
-    
-    return () => window.removeEventListener('resize', handleResize);
-  }, [isActive]);
 
   // Workout duration timer
   useEffect(() => {
@@ -88,7 +64,7 @@ export default function PushUpPage() {
     const smoothedElbow = repCounterRef.current.getSmoothedElbow(avgElbow);
     const elbowVelocity = repCounterRef.current.getElbowVelocity();
 
-    const formAnalysis = analyzePushUpForm(landmarks, smoothedElbow, elbowVelocity ?? undefined, variation);
+    const formAnalysis = analyzePullUpForm(landmarks, smoothedElbow, elbowVelocity ?? undefined, variation);
     setAnalysis(formAnalysis);
 
     const newRep = repCounterRef.current.update(formAnalysis.phase, avgElbow);
@@ -103,154 +79,6 @@ export default function PushUpPage() {
     setShowVideoModal(true);
   }, []);
 
-  // Upload video handler
-  const handleVideoUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && file.type.startsWith('video/')) {
-      const url = URL.createObjectURL(file);
-      setUploadedVideo(url);
-      // Reset counters for upload analysis
-      repCounterRef.current.reset();
-      setRepCount(0);
-      setAnalysis(null);
-      setLastRepQuality('none');
-    }
-  }, []);
-
-  // Cleanup uploaded video URL
-  useEffect(() => {
-    return () => {
-      if (uploadedVideo) {
-        URL.revokeObjectURL(uploadedVideo);
-      }
-    };
-  }, [uploadedVideo]);
-
-  // Initialize pose for uploaded video analysis
-  const initializeUploadAnalysis = useCallback(async () => {
-    if (!uploadVideoRef.current || !uploadCanvasRef.current) return;
-    
-    setIsAnalyzingUpload(true);
-    
-    try {
-      const { Pose } = await import('@mediapipe/pose');
-      const { drawConnectors, drawLandmarks } = await import('@mediapipe/drawing_utils');
-      
-      const pose = new Pose({
-        locateFile: (file) => {
-          return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
-        },
-      });
-
-      pose.setOptions({
-        modelComplexity: 1,
-        smoothLandmarks: true,
-        enableSegmentation: false,
-        smoothSegmentation: false,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5,
-      });
-
-      pose.onResults((results: any) => {
-        const canvas = uploadCanvasRef.current;
-        const video = uploadVideoRef.current;
-        const ctx = canvas?.getContext('2d');
-        
-        if (!canvas || !ctx || !video) return;
-
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-        if (results.poseLandmarks) {
-          const landmarks: PoseLandmark[] = results.poseLandmarks.map((lm: any) => ({
-            x: lm.x,
-            y: lm.y,
-            z: lm.z,
-            visibility: lm.visibility,
-          }));
-
-          // Analyze pose
-          const leftElbow = getElbowAngle(landmarks, 'left');
-          const rightElbow = getElbowAngle(landmarks, 'right');
-          const avgElbow = leftElbow !== null && rightElbow !== null 
-            ? (leftElbow + rightElbow) / 2 
-            : leftElbow ?? rightElbow;
-          
-          const smoothedElbow = repCounterRef.current.getSmoothedElbow(avgElbow);
-          const elbowVelocity = repCounterRef.current.getElbowVelocity();
-          const formAnalysis = analyzePushUpForm(landmarks, smoothedElbow, elbowVelocity ?? undefined, variation);
-          setAnalysis(formAnalysis);
-
-          const newRep = repCounterRef.current.update(formAnalysis.phase, avgElbow);
-          if (newRep) {
-            setRepCount(repCounterRef.current.getCount());
-            setLastRepQuality(repCounterRef.current.getLastRepQuality());
-          }
-
-          // Draw skeleton
-          const POSE_CONNECTIONS_LOCAL: [number, number][] = [
-            [11, 12], [11, 13], [13, 15], [12, 14], [14, 16],
-            [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28],
-          ];
-          
-          drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS_LOCAL, {
-            color: '#00FF00',
-            lineWidth: 2,
-          });
-
-          drawLandmarks(ctx, results.poseLandmarks, {
-            color: '#FF0000',
-            lineWidth: 1,
-            radius: 3,
-          });
-        }
-      });
-
-      poseAnalyzerRef.current = pose;
-      
-      // Start analyzing frames
-      const analyzeFrame = async () => {
-        const video = uploadVideoRef.current;
-        if (video && !video.paused && !video.ended && poseAnalyzerRef.current) {
-          await poseAnalyzerRef.current.send({ image: video });
-        }
-        if (!video?.ended && !video?.paused) {
-          animationFrameRef.current = requestAnimationFrame(analyzeFrame);
-        }
-      };
-      
-      uploadVideoRef.current.play();
-      analyzeFrame();
-      
-    } catch (err) {
-      console.error('Failed to initialize upload analysis:', err);
-      setIsAnalyzingUpload(false);
-    }
-  }, []);
-
-  // Cleanup upload analysis
-  const cleanupUploadAnalysis = useCallback(() => {
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-    }
-    if (poseAnalyzerRef.current) {
-      poseAnalyzerRef.current.close();
-      poseAnalyzerRef.current = null;
-    }
-  }, []);
-
-  const handleCloseUpload = useCallback(() => {
-    cleanupUploadAnalysis();
-    if (uploadedVideo) {
-      URL.revokeObjectURL(uploadedVideo);
-    }
-    setUploadedVideo(null);
-    setIsAnalyzingUpload(false);
-    setRepCount(0);
-    setAnalysis(null);
-    repCounterRef.current.reset();
-  }, [uploadedVideo, cleanupUploadAnalysis]);
-
   const handleStart = (startFullscreen = false) => {
     repCounterRef.current.reset();
     setRepCount(0);
@@ -259,7 +87,6 @@ export default function PushUpPage() {
     setWorkoutDuration(0);
     setRecordedVideo(null);
     
-    // Enter fullscreen mode FIRST if requested (before camera starts)
     if (startFullscreen) {
       setIsFullscreen(true);
     }
@@ -267,7 +94,6 @@ export default function PushUpPage() {
     setIsActive(true);
     setIsRecording(true);
     
-    // Start recording after a short delay to let camera initialize
     setTimeout(() => {
       poseCameraRef.current?.startRecording();
     }, 500);
@@ -276,11 +102,9 @@ export default function PushUpPage() {
   const handleStop = () => {
     setFinalRepCount(repCount);
     
-    // Stop recording first
     if (poseCameraRef.current?.isRecording) {
       poseCameraRef.current.stopRecording();
     } else {
-      // Show modal anyway even without video
       setShowVideoModal(true);
     }
     
@@ -290,7 +114,6 @@ export default function PushUpPage() {
   };
 
   const toggleFullscreen = () => {
-    // Warn user that toggling fullscreen may affect recording
     if (isRecording) {
       const confirmed = window.confirm(
         'การเปลี่ยนโหมดเต็มจออาจทำให้วิดีโอหยุดบันทึก ต้องการดำเนินการต่อหรือไม่?'
@@ -312,7 +135,7 @@ export default function PushUpPage() {
       const url = URL.createObjectURL(recordedVideo);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `pushup-workout-${new Date().toISOString().slice(0, 10)}.webm`;
+      a.download = `pullup-workout-${new Date().toISOString().slice(0, 10)}.webm`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -326,20 +149,19 @@ export default function PushUpPage() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Single return - PoseCamera persists across fullscreen toggle
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      {/* PERSISTENT CAMERA - always at root level, CSS changes based on fullscreen */}
+      {/* PERSISTENT CAMERA */}
       {isActive && (
         <div 
           className={
             isFullscreen 
               ? 'fixed inset-0 z-40 bg-black' 
-              : 'contents'  // 'contents' makes this div invisible to layout
+              : 'contents'
           }
         >
           <PoseCamera
-            key="main-camera"  // Same key = same instance
+            key="pullup-camera"
             ref={poseCameraRef}
             onPoseDetected={handlePoseDetected}
             isActive={isActive}
@@ -363,7 +185,7 @@ export default function PushUpPage() {
             
             {/* Variation + Duration display */}
             <div className="flex flex-col items-center gap-2">
-              <span className="bg-orange-600/80 backdrop-blur-sm text-white px-3 py-1 rounded-lg text-sm">
+              <span className="bg-indigo-600/80 backdrop-blur-sm text-white px-3 py-1 rounded-lg text-sm">
                 {VARIATIONS.find(v => v.id === variation)?.emoji} {VARIATIONS.find(v => v.id === variation)?.label}
               </span>
               <div className="bg-black/60 backdrop-blur-sm rounded-lg px-4 py-2 flex items-center gap-2">
@@ -413,7 +235,7 @@ export default function PushUpPage() {
             <div className="bg-gray-800/60 backdrop-blur-sm rounded-full h-4 overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-300 ${
-                  repCount >= targetReps ? 'bg-green-500' : 'bg-blue-500'
+                  repCount >= targetReps ? 'bg-green-500' : 'bg-indigo-500'
                 }`}
                 style={{ width: `${Math.min((repCount / targetReps) * 100, 100)}%` }}
               />
@@ -436,6 +258,8 @@ export default function PushUpPage() {
           </div>
         </div>
       )}
+
+      {/* Video Modal */}
       {showVideoModal && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
           <div className="bg-gray-800 rounded-2xl max-w-lg w-full p-6">
@@ -443,7 +267,7 @@ export default function PushUpPage() {
             
             {/* Variation badge */}
             <div className="flex justify-center mb-4">
-              <span className="bg-orange-600/30 text-orange-300 px-3 py-1 rounded-full text-sm">
+              <span className="bg-indigo-600/30 text-indigo-300 px-3 py-1 rounded-full text-sm">
                 {VARIATIONS.find(v => v.id === variation)?.emoji} {VARIATIONS.find(v => v.id === variation)?.label}
               </span>
             </div>
@@ -462,7 +286,7 @@ export default function PushUpPage() {
               </div>
             </div>
             
-            {/* Video Preview - only if video exists */}
+            {/* Video Preview */}
             {recordedVideo ? (
               <>
                 <div className="mb-4">
@@ -474,7 +298,6 @@ export default function PushUpPage() {
                   />
                 </div>
                 
-                {/* Actions */}
                 <div className="flex flex-col gap-3">
                   <button
                     onClick={handleDownloadVideo}
@@ -489,21 +312,17 @@ export default function PushUpPage() {
                     ปิด
                   </button>
                 </div>
-                
-                <p className="text-gray-500 text-sm text-center mt-4">
-                  วิดีโอจะถูกบันทึกในรูปแบบ WebM
-                </p>
               </>
             ) : (
               <>
                 <div className="mb-4 bg-gray-900/50 rounded-lg p-6 text-center">
                   <div className="text-4xl mb-2">📷</div>
-                  <p className="text-gray-400">ไม่มีวิดีโอ (กล้องไม่ได้บันทึก)</p>
+                  <p className="text-gray-400">ไม่มีวิดีโอ</p>
                 </div>
                 
                 <button
                   onClick={() => setShowVideoModal(false)}
-                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold"
+                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold"
                 >
                   ตกลง
                 </button>
@@ -518,7 +337,7 @@ export default function PushUpPage() {
         <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold">Push-up วิดพื้น</h1>
+              <h1 className="text-2xl font-bold">🏋️ Pull-up ดึงข้อ</h1>
               <p className="text-gray-400 text-sm">วิเคราะห์ท่าแบบ Real-time</p>
             </div>
             <a 
@@ -537,83 +356,16 @@ export default function PushUpPage() {
           {/* Camera section */}
           <div className="md:col-span-2">
             <div className="bg-gray-800 rounded-lg p-4">
-              {/* Uploaded Video Analysis Mode */}
-              {uploadedVideo ? (
+              {isActive ? (
                 <div className="relative">
-                  {/* Hidden video for analysis */}
-                  <video
-                    ref={uploadVideoRef}
-                    src={uploadedVideo}
-                    className="hidden"
-                    playsInline
-                    onEnded={() => setIsAnalyzingUpload(false)}
-                  />
-                  
-                  {/* Canvas for display */}
-                  <canvas
-                    ref={uploadCanvasRef}
-                    width={640}
-                    height={480}
-                    className="w-full h-auto rounded-lg transform scale-x-[-1]"
-                  />
-                  
-                  {/* Overlay UI */}
-                  <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-sm rounded-lg px-3 py-2 flex items-center gap-2">
-                    <span className="text-3xl font-bold">{repCount}</span>
-                    <span className="text-gray-400">ครั้ง</span>
-                  </div>
-                  
-                  <div className="absolute top-2 right-2">
-                    <PhaseIndicator phase={analysis?.phase || 'transition'} small />
-                  </div>
-                  
-                  {analysis && (
-                    <div className="absolute bottom-2 left-2 right-2">
-                      <ScoreBar score={analysis.score} />
-                    </div>
-                  )}
-                  
-                  {/* Controls */}
-                  <div className="flex justify-center gap-4 mt-4">
-                    {!isAnalyzingUpload ? (
-                      <button
-                        onClick={initializeUploadAnalysis}
-                        className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-                      >
-                        ▶️ เริ่มวิเคราะห์
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          uploadVideoRef.current?.pause();
-                          setIsAnalyzingUpload(false);
-                        }}
-                        className="px-6 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors"
-                      >
-                        ⏸️ หยุดชั่วคราว
-                      </button>
-                    )}
-                    <button
-                      onClick={handleCloseUpload}
-                      className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-                    >
-                      ✕ ปิด
-                    </button>
-                  </div>
-                </div>
-              ) : isActive ? (
-                <div className="relative">
-                  {/* Camera is rendered at root level - show placeholder here */}
                   {isFullscreen ? (
                     <div className="aspect-video bg-gray-900 rounded-lg flex items-center justify-center">
                       <p className="text-gray-400">กำลังแสดงแบบเต็มจอ...</p>
                     </div>
                   ) : (
-                    /* Camera placeholder - actual camera is rendered at root level */
                     <div className="aspect-video" />
                   )}
                   
-                  {/* Mini overlay feedback - only show when NOT fullscreen */}
                   {!isFullscreen && (
                     <>
                       <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-sm rounded-lg px-3 py-2 flex items-center gap-2 z-10">
@@ -624,7 +376,6 @@ export default function PushUpPage() {
                         <span className="text-gray-400">/{targetReps}</span>
                       </div>
                       
-                      {/* Duration */}
                       <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-sm rounded-lg px-3 py-1 z-10">
                         <span className="text-white font-mono">{formatDuration(workoutDuration)}</span>
                       </div>
@@ -659,7 +410,7 @@ export default function PushUpPage() {
                             onClick={() => setVariation(v.id)}
                             className={`px-3 py-2 rounded-lg text-center transition-all ${
                               variation === v.id
-                                ? 'bg-orange-600 text-white ring-2 ring-orange-400'
+                                ? 'bg-indigo-600 text-white ring-2 ring-indigo-400'
                                 : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                             }`}
                           >
@@ -685,13 +436,13 @@ export default function PushUpPage() {
                         เป้าหมาย:
                       </label>
                       <div className="flex items-center justify-center gap-2">
-                        {[5, 10, 15, 20, 30].map((num) => (
+                        {[3, 5, 8, 10, 15, 20].map((num) => (
                           <button
                             key={num}
                             onClick={() => setTargetReps(num)}
                             className={`px-3 py-1 rounded ${
                               targetReps === num
-                                ? 'bg-blue-600 text-white'
+                                ? 'bg-indigo-600 text-white'
                                 : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                             }`}
                           >
@@ -704,7 +455,7 @@ export default function PushUpPage() {
                     <div className="flex flex-col gap-2">
                       <button
                         onClick={() => handleStart(true)}
-                        className="px-8 py-3 bg-green-600 hover:bg-green-700 text-white text-lg font-semibold rounded-lg transition-colors"
+                        className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-lg font-semibold rounded-lg transition-colors"
                       >
                         🎥 เริ่มแบบเต็มจอ (แนะนำ)
                       </button>
@@ -713,24 +464,6 @@ export default function PushUpPage() {
                         className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded-lg transition-colors"
                       >
                         เริ่มแบบปกติ
-                      </button>
-                    </div>
-                    
-                    {/* Upload button */}
-                    <div className="mt-4 pt-4 border-t border-gray-700">
-                      <p className="text-gray-500 text-sm mb-2">หรือ</p>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="video/*"
-                        onChange={handleVideoUpload}
-                        className="hidden"
-                      />
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
-                      >
-                        📁 อัพโหลดวิดีโอ วิเคราะห์ Form
                       </button>
                     </div>
                   </div>
@@ -745,17 +478,16 @@ export default function PushUpPage() {
                     className={`px-6 py-2 rounded-lg transition-colors ${
                       isRecording 
                         ? 'bg-yellow-600 hover:bg-yellow-700 text-white' 
-                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                        : 'bg-indigo-600 hover:bg-indigo-700 text-white'
                     }`}
                   >
-                    {isFullscreen ? '⛶ ย่อ' : '⛶ เต็มจอ'}
-                    {isRecording && ' ⚠️'}
+                    ⛶ เต็มจอ {isRecording && '⚠️'}
                   </button>
                   <button
                     onClick={handleStop}
                     className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors flex items-center gap-2"
                   >
-                    ⏹️ หยุด {isRecording && <span className="text-xs">(บันทึกวิดีโอ)</span>}
+                    ⏹️ หยุด
                   </button>
                   <button
                     onClick={handleReset}
@@ -769,13 +501,13 @@ export default function PushUpPage() {
 
             {/* Tips */}
             <div className="mt-4 bg-gray-800 rounded-lg p-4">
-              <h3 className="text-lg font-semibold mb-2">💡 เคล็ดลับ</h3>
+              <h3 className="text-lg font-semibold mb-2">💡 เคล็ดลับ Pull-up</h3>
               <ul className="text-gray-400 text-sm space-y-1">
-                <li>• <strong>ตั้งกล้องแนวนอน</strong> ให้เห็นตัวด้านข้าง</li>
-                <li>• กด <strong>"เต็มจอ"</strong> เพื่อดู feedback ได้ง่ายขึ้น</li>
-                <li>• <strong>วิดีโอจะถูกบันทึก</strong> เพื่อทบทวน form ภายหลัง</li>
-                <li>• รักษาลำตัวให้ตรงเป็นเส้นตรง</li>
-                <li>• งอข้อศอกประมาณ 90 องศาตอนลง</li>
+                <li>• <strong>ตั้งกล้องด้านข้าง</strong> ให้เห็นตัวทั้งตัว</li>
+                <li>• ห้อยแขนยืดตรงก่อนเริ่มดึง</li>
+                <li>• ดึงจนคางผ่านบาร์</li>
+                <li>• ควบคุมการปล่อยตัวลง อย่าปล่อยตุ้บ</li>
+                <li>• หลีกเลี่ยงการแกว่งตัว (Kipping)</li>
               </ul>
             </div>
           </div>
@@ -797,58 +529,70 @@ export default function PushUpPage() {
                 <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all duration-300 ${
-                      repCount >= targetReps ? 'bg-green-500' : 'bg-blue-500'
+                      repCount >= targetReps ? 'bg-green-500' : 'bg-indigo-500'
                     }`}
                     style={{ width: `${Math.min((repCount / targetReps) * 100, 100)}%` }}
                   />
                 </div>
-                <p className="text-gray-400 text-sm mt-2">
-                  {repCount >= targetReps ? '🎉 ครบแล้ว!' : `เหลืออีก ${targetReps - repCount} ครั้ง`}
-                </p>
               </div>
-            </div>
-
-            {/* Feedback Panel */}
-            <div className="bg-gray-800 rounded-lg p-4">
-              {analysis ? (
-                <>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl">{getScoreEmoji(analysis.score)}</span>
-                      <span className={`text-3xl font-bold ${getScoreColor(analysis.score)}`}>
-                        {analysis.score}
-                      </span>
-                      <span className="text-gray-400 text-sm">/100</span>
-                    </div>
-                    <PhaseIndicator phase={analysis.phase} small />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    {analysis.feedback.map((fb, i) => (
-                      <div
-                        key={i}
-                        className={`px-3 py-2 rounded text-sm ${
-                          fb.type === 'error' ? 'bg-red-900/50 text-red-300' :
-                          fb.type === 'warning' ? 'bg-yellow-900/50 text-yellow-300' :
-                          fb.type === 'success' ? 'bg-green-900/50 text-green-300' :
-                          'bg-blue-900/50 text-blue-300'
-                        }`}
-                      >
-                        {fb.type === 'error' && '❌ '}
-                        {fb.type === 'warning' && '⚠️ '}
-                        {fb.type === 'success' && '✅ '}
-                        {fb.type === 'info' && 'ℹ️ '}
-                        {fb.message}
-                      </div>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <div className="text-gray-400 text-center py-4">
-                  <p>รอตรวจจับท่าทาง...</p>
-                  <p className="text-sm mt-2">ยืนให้กล้องเห็นร่างกายด้านข้าง</p>
+              {lastRepQuality !== 'none' && (
+                <div className={`mt-2 text-sm ${
+                  lastRepQuality === 'good' ? 'text-green-400' : 'text-yellow-400'
+                }`}>
+                  {lastRepQuality === 'good' ? '🔥 Perfect Rep!' : '👍 Good Rep'}
                 </div>
               )}
+            </div>
+
+            {/* Form Analysis */}
+            {analysis && (
+              <div className="bg-gray-800 rounded-lg p-4">
+                <h3 className="text-gray-400 text-sm uppercase tracking-wide mb-3">
+                  วิเคราะห์ Form
+                </h3>
+                
+                {/* Score */}
+                <div className="flex items-center justify-center gap-3 mb-4">
+                  <span className="text-4xl">
+                    {analysis.score >= 80 ? '🔥' : analysis.score >= 60 ? '👍' : analysis.score >= 40 ? '😐' : '⚠️'}
+                  </span>
+                  <span className={`text-5xl font-bold ${
+                    analysis.score >= 80 ? 'text-green-400' :
+                    analysis.score >= 60 ? 'text-yellow-400' :
+                    analysis.score >= 40 ? 'text-orange-400' :
+                    'text-red-400'
+                  }`}>
+                    {analysis.score}
+                  </span>
+                </div>
+
+                {/* Feedback */}
+                <div className="space-y-2">
+                  {analysis.feedback.map((fb, index) => (
+                    <div
+                      key={index}
+                      className={`text-sm px-3 py-2 rounded ${
+                        fb.type === 'error' ? 'bg-red-900/30 text-red-400' :
+                        fb.type === 'warning' ? 'bg-yellow-900/30 text-yellow-400' :
+                        fb.type === 'success' ? 'bg-green-900/30 text-green-400' :
+                        'bg-blue-900/30 text-blue-400'
+                      }`}
+                    >
+                      {fb.message}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Duration */}
+            <div className="bg-gray-800 rounded-lg p-4 text-center">
+              <h3 className="text-gray-400 text-sm uppercase tracking-wide mb-2">
+                เวลา
+              </h3>
+              <div className="text-3xl font-mono font-bold text-white">
+                {formatDuration(workoutDuration)}
+              </div>
             </div>
           </div>
         </div>
@@ -857,93 +601,92 @@ export default function PushUpPage() {
   );
 }
 
-// Helper components
+// Phase indicator component
 function PhaseIndicator({ phase, small = false }: { phase: string; small?: boolean }) {
-  const config = {
-    up: { icon: '⬆️', text: 'ขึ้น', color: 'bg-green-600' },
-    down: { icon: '⬇️', text: 'ลง', color: 'bg-blue-600' },
-    transition: { icon: '↔️', text: 'เปลี่ยน', color: 'bg-gray-600' },
-  }[phase] || { icon: '↔️', text: 'รอ', color: 'bg-gray-600' };
+  const getPhaseInfo = () => {
+    switch (phase) {
+      case 'up':
+        return { label: 'ดึงขึ้น', color: 'bg-green-500', emoji: '⬆️' };
+      case 'down':
+        return { label: 'ปล่อยลง', color: 'bg-blue-500', emoji: '⬇️' };
+      default:
+        return { label: 'เปลี่ยนท่า', color: 'bg-gray-500', emoji: '🔄' };
+    }
+  };
 
+  const info = getPhaseInfo();
+  
   if (small) {
     return (
-      <div className={`${config.color} backdrop-blur-sm rounded-lg px-3 py-1 flex items-center gap-1`}>
-        <span>{config.icon}</span>
-        <span className="text-sm font-medium">{config.text}</span>
+      <div className={`${info.color} backdrop-blur-sm rounded-lg px-3 py-1`}>
+        <span className="text-white text-sm font-medium">{info.emoji} {info.label}</span>
       </div>
     );
   }
 
   return (
-    <div className={`${config.color}/80 backdrop-blur-sm rounded-2xl px-6 py-4 text-center`}>
-      <div className="text-4xl mb-1">{config.icon}</div>
-      <div className="text-xl font-bold">{config.text}</div>
+    <div className={`${info.color}/80 backdrop-blur-sm rounded-xl px-6 py-3`}>
+      <span className="text-white text-xl font-bold">{info.emoji} {info.label}</span>
     </div>
   );
 }
 
+// Score bar component
+function ScoreBar({ score }: { score: number }) {
+  const getColor = () => {
+    if (score >= 80) return 'bg-green-500';
+    if (score >= 60) return 'bg-yellow-500';
+    if (score >= 40) return 'bg-orange-500';
+    return 'bg-red-500';
+  };
+
+  return (
+    <div className="bg-black/60 backdrop-blur-sm rounded-lg p-2">
+      <div className="flex items-center gap-2">
+        <span className="text-white text-sm font-medium w-12">{score}</span>
+        <div className="flex-1 bg-gray-700 rounded-full h-2 overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-300 ${getColor()}`}
+            style={{ width: `${score}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Compact feedback for fullscreen mode
 function CompactFeedback({ analysis }: { analysis: FormAnalysis | null }) {
   if (!analysis) return null;
 
-  const mainFeedback = analysis.feedback.find(f => f.type === 'error') 
-    || analysis.feedback.find(f => f.type === 'warning')
-    || analysis.feedback[0];
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return 'text-green-400';
+    if (score >= 60) return 'text-yellow-400';
+    if (score >= 40) return 'text-orange-400';
+    return 'text-red-400';
+  };
 
   return (
-    <div className="bg-black/60 backdrop-blur-sm rounded-xl p-4">
-      {/* Score */}
+    <div className="bg-black/60 backdrop-blur-sm rounded-xl p-4 pointer-events-none">
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-3xl">{getScoreEmoji(analysis.score)}</span>
+        <span className="text-3xl">
+          {analysis.score >= 80 ? '🔥' : analysis.score >= 60 ? '👍' : '😐'}
+        </span>
         <span className={`text-4xl font-bold ${getScoreColor(analysis.score)}`}>
           {analysis.score}
         </span>
       </div>
       
-      {/* Main feedback message */}
-      {mainFeedback && (
-        <div className={`text-lg ${
-          mainFeedback.type === 'error' ? 'text-red-400' :
-          mainFeedback.type === 'warning' ? 'text-yellow-400' :
-          'text-green-400'
+      {analysis.feedback.slice(0, 2).map((fb, i) => (
+        <div key={i} className={`text-sm ${
+          fb.type === 'error' ? 'text-red-400' :
+          fb.type === 'warning' ? 'text-yellow-400' :
+          fb.type === 'success' ? 'text-green-400' :
+          'text-blue-400'
         }`}>
-          {mainFeedback.message}
+          {fb.message}
         </div>
-      )}
-      
-      {/* Status */}
-      <div className={`mt-2 text-sm ${analysis.isCorrect ? 'text-green-400' : 'text-orange-400'}`}>
-        {analysis.isCorrect ? '✅ ท่าถูกต้อง' : '⚡ ปรับปรุงได้'}
-      </div>
+      ))}
     </div>
   );
-}
-
-function ScoreBar({ score }: { score: number }) {
-  return (
-    <div className="bg-black/60 backdrop-blur-sm rounded-full p-1">
-      <div className="bg-gray-700 rounded-full h-3 overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all duration-200 ${
-            score >= 80 ? 'bg-green-500' :
-            score >= 60 ? 'bg-yellow-500' :
-            'bg-red-500'
-          }`}
-          style={{ width: `${score}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function getScoreColor(score: number) {
-  if (score >= 80) return 'text-green-400';
-  if (score >= 60) return 'text-yellow-400';
-  return 'text-red-400';
-}
-
-function getScoreEmoji(score: number) {
-  if (score >= 90) return '🔥';
-  if (score >= 80) return '💪';
-  if (score >= 60) return '👍';
-  return '💡';
 }

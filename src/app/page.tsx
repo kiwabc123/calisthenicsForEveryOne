@@ -27,7 +27,7 @@ const exercises = [
     emoji: '🏋️',
     difficulty: 'ปานกลาง',
     muscleGroups: ['หลัง', 'แขน'],
-    available: false,
+    available: true,
   },
   {
     id: 'squat',
@@ -45,7 +45,8 @@ const exercises = [
     emoji: '🧘',
     difficulty: 'เริ่มต้น',
     muscleGroups: ['หน้าท้อง', 'แกนกลาง'],
-    available: false,
+    available: true,
+    isTimeBased: true,
   },
 ];
 
