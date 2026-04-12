@@ -9,6 +9,9 @@ const exercises = [
     difficulty: 'เริ่มต้น',
     muscleGroups: ['หน้าอก', 'ไหล่', 'แขน'],
     available: true,
+    gradient: 'from-rose-500/20 to-orange-500/20',
+    border: 'border-rose-500/30',
+    accent: 'text-rose-400',
   },
   {
     id: 'handstand',
@@ -19,6 +22,9 @@ const exercises = [
     muscleGroups: ['ไหล่', 'แขน', 'แกนกลาง'],
     available: true,
     isTimeBased: true,
+    gradient: 'from-violet-500/20 to-purple-500/20',
+    border: 'border-violet-500/30',
+    accent: 'text-violet-400',
   },
   {
     id: 'pull-up',
@@ -28,6 +34,9 @@ const exercises = [
     difficulty: 'ปานกลาง',
     muscleGroups: ['หลัง', 'แขน'],
     available: true,
+    gradient: 'from-blue-500/20 to-cyan-500/20',
+    border: 'border-blue-500/30',
+    accent: 'text-blue-400',
   },
   {
     id: 'squat',
@@ -36,7 +45,10 @@ const exercises = [
     emoji: '🦵',
     difficulty: 'เริ่มต้น',
     muscleGroups: ['ขา', 'ก้น'],
-    available: false,
+    available: true,
+    gradient: 'from-amber-500/20 to-yellow-500/20',
+    border: 'border-amber-500/30',
+    accent: 'text-amber-400',
   },
   {
     id: 'plank',
@@ -47,6 +59,9 @@ const exercises = [
     muscleGroups: ['หน้าท้อง', 'แกนกลาง'],
     available: true,
     isTimeBased: true,
+    gradient: 'from-emerald-500/20 to-teal-500/20',
+    border: 'border-emerald-500/30',
+    accent: 'text-emerald-400',
   },
 ];
 
@@ -54,9 +69,14 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       {/* Hero section */}
-      <header className="bg-gradient-to-b from-gray-800 to-gray-900 py-16">
-        <div className="max-w-4xl mx-auto px-4 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">
+      <header className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 py-16 relative overflow-hidden">
+        {/* Background decoration */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-500/10 via-transparent to-transparent" />
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl" />
+        
+        <div className="max-w-6xl mx-auto px-4 text-center relative z-10">
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent">
             🏋️ Calisthenics For Everyone
           </h1>
           <p className="text-xl text-gray-300 mb-2">
@@ -69,16 +89,16 @@ export default function Home() {
       </header>
 
       {/* Exercise cards */}
-      <main className="max-w-4xl mx-auto px-4 py-12">
+      <main className="max-w-6xl mx-auto px-4 py-12">
         <h2 className="text-2xl font-semibold mb-6">เลือกท่าที่ต้องการฝึก</h2>
         
-        <div className="grid sm:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {exercises.map((exercise) => (
             <div
               key={exercise.id}
-              className={`bg-gray-800 rounded-xl p-6 transition-all ${
+              className={`relative bg-gradient-to-br ${exercise.gradient} backdrop-blur-sm rounded-xl p-4 md:p-6 border ${exercise.border} transition-all duration-300 ${
                 exercise.available
-                  ? 'hover:bg-gray-700 hover:scale-[1.02] cursor-pointer'
+                  ? 'hover:scale-[1.03] hover:shadow-lg hover:shadow-black/20 cursor-pointer'
                   : 'opacity-60'
               }`}
             >
@@ -89,7 +109,7 @@ export default function Home() {
               ) : (
                 <div className="relative">
                   <ExerciseCardContent exercise={exercise} />
-                  <span className="absolute top-0 right-0 bg-gray-600 text-xs px-2 py-1 rounded">
+                  <span className="absolute top-0 right-0 bg-gray-600/80 backdrop-blur-sm text-xs px-2 py-1 rounded">
                     เร็วๆ นี้
                   </span>
                 </div>
@@ -100,31 +120,39 @@ export default function Home() {
 
         {/* Features */}
         <section className="mt-16">
-          <h2 className="text-2xl font-semibold mb-6">ทำไมต้องใช้ App นี้?</h2>
+          <h2 className="text-2xl font-semibold mb-6 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
+            ทำไมต้องใช้ App นี้?
+          </h2>
           <div className="grid sm:grid-cols-3 gap-6">
             <FeatureCard
               emoji="🎯"
               title="วิเคราะห์ท่าแม่นยำ"
               description="AI ตรวจจับท่าทางและให้ feedback ทันที"
+              gradient="from-cyan-500/20 to-blue-500/20"
+              border="border-cyan-500/30"
             />
             <FeatureCard
               emoji="🔢"
               title="นับ Rep อัตโนมัติ"
               description="ไม่ต้องนับเอง ระบบนับให้แม่นยำ"
+              gradient="from-green-500/20 to-emerald-500/20"
+              border="border-green-500/30"
             />
             <FeatureCard
               emoji="📊"
               title="ติดตาม Progress"
               description="ดูสถิติการฝึกและพัฒนาการ"
+              gradient="from-purple-500/20 to-pink-500/20"
+              border="border-purple-500/30"
             />
           </div>
         </section>
       </main>
 
       {/* Footer */}
-      <footer className="bg-gray-800 py-8 mt-16">
-        <div className="max-w-4xl mx-auto px-4 text-center text-gray-400">
-          <p>Made with 💪 for fitness enthusiasts</p>
+      <footer className="bg-gradient-to-t from-gray-900 to-gray-800 py-8 mt-16 border-t border-gray-700/50">
+        <div className="max-w-6xl mx-auto px-4 text-center">
+          <p className="text-gray-400">Made with <span className="text-red-400">💪</span> for fitness enthusiasts</p>
         </div>
       </footer>
     </div>
@@ -135,9 +163,9 @@ function ExerciseCardContent({ exercise }: { exercise: typeof exercises[0] }) {
   return (
     <>
       <div className="flex items-center gap-4 mb-4">
-        <span className="text-4xl">{exercise.emoji}</span>
+        <span className="text-4xl drop-shadow-lg">{exercise.emoji}</span>
         <div>
-          <h3 className="text-xl font-semibold">{exercise.nameLocal}</h3>
+          <h3 className="text-xl font-semibold text-white">{exercise.nameLocal}</h3>
           <p className="text-gray-400 text-sm">{exercise.name}</p>
         </div>
       </div>
@@ -145,25 +173,31 @@ function ExerciseCardContent({ exercise }: { exercise: typeof exercises[0] }) {
         {exercise.muscleGroups.map((muscle) => (
           <span
             key={muscle}
-            className="bg-gray-700 text-gray-300 text-xs px-2 py-1 rounded"
+            className="bg-white/10 text-gray-200 text-xs px-2 py-1 rounded-full"
           >
             {muscle}
           </span>
         ))}
       </div>
       <p className="text-sm text-gray-400">
-        ระดับ: <span className="text-blue-400">{exercise.difficulty}</span>
+        ระดับ: <span className={exercise.accent}>{exercise.difficulty}</span>
       </p>
     </>
   );
 }
 
-function FeatureCard({ emoji, title, description }: { emoji: string; title: string; description: string }) {
+function FeatureCard({ emoji, title, description, gradient, border }: { 
+  emoji: string; 
+  title: string; 
+  description: string;
+  gradient: string;
+  border: string;
+}) {
   return (
-    <div className="bg-gray-800 rounded-lg p-6 text-center">
-      <span className="text-3xl mb-3 block">{emoji}</span>
-      <h3 className="font-semibold mb-2">{title}</h3>
-      <p className="text-gray-400 text-sm">{description}</p>
+    <div className={`bg-gradient-to-br ${gradient} backdrop-blur-sm rounded-xl p-6 text-center border ${border} transition-all duration-300 hover:scale-[1.02]`}>
+      <span className="text-4xl mb-3 block drop-shadow-lg">{emoji}</span>
+      <h3 className="font-semibold mb-2 text-white">{title}</h3>
+      <p className="text-gray-300 text-sm">{description}</p>
     </div>
   );
 }
