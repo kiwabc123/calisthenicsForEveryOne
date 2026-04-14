@@ -164,12 +164,22 @@ const PoseCamera = forwardRef<PoseCameraRef, PoseCameraProps>(
         ctx.save();
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        // Draw video frame
+        // Mirror the canvas horizontally for selfie view
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        
+        // Draw video frame (now mirrored)
         ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
 
         // Draw pose landmarks if detected
         if (results.poseLandmarks) {
-          // Convert to our format and notify parent
+          // Mirror the landmarks to match the mirrored video
+          const mirroredLandmarks = results.poseLandmarks.map((lm: any) => ({
+            ...lm,
+            x: 1 - lm.x, // Mirror x coordinate (0-1 range)
+          }));
+          
+          // Convert to our format and notify parent (use original for calculations)
           const landmarks: PoseLandmark[] = results.poseLandmarks.map((lm: any) => ({
             x: lm.x,
             y: lm.y,
@@ -180,17 +190,18 @@ const PoseCamera = forwardRef<PoseCameraRef, PoseCameraProps>(
           onPoseDetected(landmarks);
 
           // Adjust line width based on canvas size
-          const lineWidth = fullscreen ? 4 : 2;
-          const radius = fullscreen ? 6 : 3;
+          const lineWidth = fullscreen ? 3 : 2;
+          const radius = fullscreen ? 5 : 3;
 
-          // Draw skeleton
-          drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, {
-            color: '#00FF00',
+          // Draw skeleton with mirrored landmarks
+          drawConnectors(ctx, mirroredLandmarks, POSE_CONNECTIONS, {
+            color: 'rgba(0, 255, 128, 0.8)',
             lineWidth: lineWidth,
           });
 
-          drawLandmarks(ctx, results.poseLandmarks, {
-            color: '#FF0000',
+          drawLandmarks(ctx, mirroredLandmarks, {
+            color: 'rgba(255, 100, 100, 0.9)',
+            fillColor: 'rgba(255, 200, 200, 0.8)',
             lineWidth: 1,
             radius: radius,
           });
@@ -351,7 +362,7 @@ const PoseCamera = forwardRef<PoseCameraRef, PoseCameraProps>(
         ref={canvasRef}
         width={dimensions.width}
         height={dimensions.height}
-        className={`${fullscreen ? 'max-w-full max-h-full' : 'w-full h-auto rounded-lg shadow-lg'} transform scale-x-[-1]`}
+        className={`${fullscreen ? 'max-w-full max-h-full' : 'w-full h-auto rounded-lg shadow-lg'}`}
         style={fullscreen ? { 
           width: dimensions.width, 
           height: dimensions.height,

@@ -336,15 +336,23 @@ export class SquatRepCounter {
   private phase: ExercisePhase = 'up';
   private prevPhase: ExercisePhase = 'up';
   private lastKneeAngle: number | null = null;
-  private kneeSmoothing = new AngleSmoothing(5);
+  private kneeSmoothing = new AngleSmoothing(7); // Increased for slow movements
   private lastRepQuality: 'good' | 'partial' | 'none' = 'none';
   private wasAtBottom = false;
   private bottomReached = false;
+  private topReached = true; // Must reach full standing before next rep
   private variation: SquatVariation = 'standard';
   
-  // Hysteresis thresholds
-  private readonly TOP_THRESHOLD_HIGH = 150; // Must go above this to count as "up"
-  private readonly BOTTOM_THRESHOLD = 100;    // Must go below for "down"
+  // Timing constraints
+  private minRepCooldown = 500; // Minimum time between reps
+  private lastRepTime = 0;
+  private lowestAngleInRep = 180;
+  
+  // Hysteresis thresholds with larger gaps
+  private readonly TOP_THRESHOLD_ENTER = 155; // Must go above this to be "standing"
+  private readonly TOP_THRESHOLD_EXIT = 140;  // Must go below this to leave "standing"
+  private readonly BOTTOM_THRESHOLD_ENTER = 95;  // Must go below this to be "down"
+  private readonly BOTTOM_THRESHOLD_EXIT = 115;  // Must go above this to leave "down"
 
   setVariation(v: SquatVariation): void {
     this.variation = v;
@@ -362,6 +370,8 @@ export class SquatRepCounter {
   }
 
   update(phase: ExercisePhase, kneeAngle: number | null): boolean {
+    const now = Date.now();
+    const timeSinceLastRep = now - this.lastRepTime;
     const smoothedAngle = this.getSmoothedKnee(kneeAngle);
     
     if (smoothedAngle === null) {
@@ -369,37 +379,51 @@ export class SquatRepCounter {
       return false;
     }
 
-    let newRep = false;
-    const thresholds = VARIATION_THRESHOLDS[this.variation];
-    const bottomThreshold = thresholds.minKneeAngle + 30;
-    const topThreshold = thresholds.maxKneeAngle - 15;
+    // Track lowest angle in current rep
+    if (smoothedAngle < this.lowestAngleInRep) {
+      this.lowestAngleInRep = smoothedAngle;
+    }
 
-    // Check if reached bottom
+    const thresholds = VARIATION_THRESHOLDS[this.variation];
+    const bottomThreshold = thresholds.minKneeAngle + 25;
+
+    // Check if reached valid bottom position
     if (smoothedAngle < bottomThreshold) {
       this.bottomReached = true;
       this.wasAtBottom = true;
     }
+    
+    // Check if reached valid top position (full standing)
+    if (smoothedAngle > this.TOP_THRESHOLD_ENTER) {
+      this.topReached = true;
+    }
 
     // Count rep when returning to top after reaching bottom
-    if (this.bottomReached && smoothedAngle > topThreshold) {
+    // Requires: bottom reached + top reached + cooldown passed
+    if (this.bottomReached && 
+        smoothedAngle > this.TOP_THRESHOLD_ENTER && 
+        timeSinceLastRep >= this.minRepCooldown) {
       this.count++;
-      newRep = true;
+      this.lastRepTime = now;
       this.bottomReached = false;
+      this.topReached = false; // Must reach top again for next rep
       
       // Determine rep quality based on how deep they went
-      if (this.wasAtBottom && smoothedAngle < thresholds.minKneeAngle + 15) {
+      if (this.lowestAngleInRep <= thresholds.minKneeAngle + 15) {
         this.lastRepQuality = 'good'; // Deep squat
       } else {
         this.lastRepQuality = 'partial';
       }
       this.wasAtBottom = false;
+      this.lowestAngleInRep = 180;
+      return true;
     }
 
     this.lastKneeAngle = smoothedAngle;
     this.prevPhase = this.phase;
     this.phase = phase;
 
-    return newRep;
+    return false;
   }
 
   getCount(): number {
@@ -418,6 +442,9 @@ export class SquatRepCounter {
     this.lastRepQuality = 'none';
     this.wasAtBottom = false;
     this.bottomReached = false;
+    this.topReached = true;
+    this.lastRepTime = 0;
+    this.lowestAngleInRep = 180;
     this.kneeSmoothing.reset();
   }
 }

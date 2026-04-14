@@ -21,10 +21,10 @@ const THRESHOLDS = {
 
 // Phase detection with hysteresis
 const PHASE_THRESHOLDS = {
-  UP_ENTER: 85,      // Must reach this to be considered "up"
-  UP_EXIT: 100,      // Must drop below this to leave "up"
-  DOWN_ENTER: 145,   // Must reach this to be considered "down"
-  DOWN_EXIT: 130,    // Must rise above this to leave "down"
+  UP_ENTER: 80,       // Must reach this to be considered "up" (increased gap)
+  UP_EXIT: 105,       // Must go above this to leave "up" (25° gap)
+  DOWN_ENTER: 150,    // Must reach this to be considered "down"
+  DOWN_EXIT: 125,     // Must go below this to leave "down" (25° gap)
 };
 
 // Scoring weights
@@ -391,28 +391,39 @@ export class PullUpRepCounter {
     lastPhaseChange: Date.now(),
   };
 
-  private elbowSmoother = new AngleSmoothing(5);
-  private minPhaseDuration = 200;
-  private maxRepDuration = 6000;
+  private elbowSmoother = new AngleSmoothing(7); // Increased smoothing
+  private minPhaseDuration = 250; // Increased
+  private maxRepDuration = 8000;  // Increased for slow reps
+  private minRepCooldown = 500;   // Minimum time between reps
+  private lastRepTime = 0;
+  
   private reachedValidUp = false;
-  private maxUpAngle = 95;
+  private reachedValidDown = true; // Must reach full extension before next rep
+  private maxUpAngle = 90;        // Must reach this angle at top
+  private minDownAngle = 145;     // Must reach this angle at bottom for next rep
   private highestAngleInRep = 0;
   private lastRepQuality: 'good' | 'partial' | 'none' = 'none';
 
   update(phase: ExercisePhase, elbowAngle: number | null): boolean {
     const now = Date.now();
     const timeSinceChange = now - this.state.lastPhaseChange;
+    const timeSinceLastRep = now - this.lastRepTime;
 
     const smoothedAngle = this.elbowSmoother.update(elbowAngle);
     
-    // Track highest angle reached during pull
+    // Track highest angle reached during pull (lower angle = higher pull)
     if (smoothedAngle !== null && smoothedAngle > this.highestAngleInRep) {
       this.highestAngleInRep = smoothedAngle;
     }
 
-    // Check if reached valid up position
-    if (phase === 'up' && smoothedAngle !== null && smoothedAngle <= this.maxUpAngle) {
+    // Check if reached valid up position (chin over bar)
+    if (smoothedAngle !== null && smoothedAngle <= this.maxUpAngle) {
       this.reachedValidUp = true;
+    }
+    
+    // Check if reached valid down position (full extension for next rep)
+    if (smoothedAngle !== null && smoothedAngle >= this.minDownAngle) {
+      this.reachedValidDown = true;
     }
 
     if (timeSinceChange < this.minPhaseDuration) {
@@ -424,27 +435,46 @@ export class PullUpRepCounter {
       this.state.currentPhase = 'down';
       this.state.lastPhaseChange = now;
       this.reachedValidUp = false;
+      this.reachedValidDown = true;
+      this.highestAngleInRep = 0;
+      return false;
+    }
+
+    // Start new pull only if we reached valid down position
+    if (this.state.currentPhase === 'down' && phase === 'up') {
+      if (!this.reachedValidDown) {
+        return false;
+      }
+      this.state.currentPhase = 'up';
+      this.state.lastPhaseChange = now;
+      this.reachedValidDown = false; // Reset for next rep
       this.highestAngleInRep = 0;
       return false;
     }
 
     // Count rep when going from up back to down
     if (this.state.currentPhase === 'up' && phase === 'down') {
-      if (this.reachedValidUp) {
+      this.state.currentPhase = 'down';
+      this.state.lastPhaseChange = now;
+      
+      // Only count if reached valid up position AND cooldown passed
+      if (this.reachedValidUp && timeSinceLastRep >= this.minRepCooldown) {
         this.state.count++;
-        this.lastRepQuality = this.highestAngleInRep >= 160 ? 'good' : 'partial';
+        this.lastRepTime = now;
+        this.lastRepQuality = this.highestAngleInRep <= 80 ? 'good' : 'partial';
         this.reachedValidUp = false;
         this.highestAngleInRep = 0;
-        this.state.currentPhase = 'down';
-        this.state.lastPhaseChange = now;
         return true;
+      } else {
+        this.reachedValidUp = false;
+        this.highestAngleInRep = 0;
+        return false;
       }
     }
 
-    // Update phase
-    if (phase !== 'transition' && phase !== this.state.currentPhase) {
-      this.state.currentPhase = phase;
-      this.state.lastPhaseChange = now;
+    // Handle transition phases
+    if (phase === 'transition') {
+      return false;
     }
 
     return false;
@@ -478,7 +508,9 @@ export class PullUpRepCounter {
     };
     this.elbowSmoother.reset();
     this.reachedValidUp = false;
+    this.reachedValidDown = true;
     this.highestAngleInRep = 0;
+    this.lastRepTime = 0;
     this.lastRepQuality = 'none';
     resetPhaseDetection();
   }

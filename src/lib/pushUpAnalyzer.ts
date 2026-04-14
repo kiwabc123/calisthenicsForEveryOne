@@ -52,10 +52,11 @@ const VARIATION_THRESHOLDS: Record<PushUpVariation, typeof THRESHOLDS> = {
 // Phase detection with hysteresis to prevent jitter
 const PHASE_THRESHOLDS = {
   // Use different thresholds for entering vs leaving a phase (hysteresis)
-  UP_ENTER: 145,      // Must reach this to be considered "up"
-  UP_EXIT: 130,       // Must drop below this to leave "up"
-  DOWN_ENTER: 95,     // Must reach this to be considered "down"
-  DOWN_EXIT: 110,     // Must rise above this to leave "down"
+  // Increased gaps to prevent jitter during slow movements
+  UP_ENTER: 150,      // Must reach this to be considered "up"
+  UP_EXIT: 125,       // Must drop below this to leave "up" (25° gap)
+  DOWN_ENTER: 90,     // Must reach this to be considered "down"
+  DOWN_EXIT: 115,     // Must rise above this to leave "down" (25° gap)
 };
 
 // Scoring weights (total = 100%)
@@ -390,16 +391,20 @@ export class PushUpRepCounter {
     lastPhaseChange: Date.now(),
   };
 
-  // Smoothing for stable phase detection
-  private elbowSmoother = new AngleSmoothing(5);
+  // Smoothing for stable phase detection - increased window for slow movements
+  private elbowSmoother = new AngleSmoothing(7);
   
   // Timing constraints
-  private minPhaseDuration = 150; // ms - minimum time in a phase
-  private maxRepDuration = 5000;  // ms - max time for one rep (prevents stuck state)
+  private minPhaseDuration = 200; // ms - minimum time in a phase (increased)
+  private maxRepDuration = 8000;  // ms - max time for one rep (increased for slow reps)
+  private minRepCooldown = 400;   // ms - minimum time between counted reps
+  private lastRepTime = 0;        // timestamp of last counted rep
   
   // Rep validation
   private reachedValidDown = false;
-  private minDownAngle = 105; // Must reach at least this angle to count
+  private reachedValidUp = true;  // Must reach full extension before next rep
+  private minDownAngle = 100; // Must reach at least this angle to count
+  private minUpAngle = 145;   // Must reach this angle to start next rep
   private lowestAngleInRep = 180;
   
   // Quality tracking
@@ -412,6 +417,7 @@ export class PushUpRepCounter {
   update(phase: ExercisePhase, elbowAngle: number | null): boolean {
     const now = Date.now();
     const timeSinceChange = now - this.state.lastPhaseChange;
+    const timeSinceLastRep = now - this.lastRepTime;
 
     // Smooth the elbow angle
     const smoothedAngle = this.elbowSmoother.update(elbowAngle);
@@ -422,8 +428,13 @@ export class PushUpRepCounter {
     }
 
     // Check if reached valid down position
-    if (phase === 'down' && smoothedAngle !== null && smoothedAngle <= this.minDownAngle) {
+    if (smoothedAngle !== null && smoothedAngle <= this.minDownAngle) {
       this.reachedValidDown = true;
+    }
+    
+    // Check if reached valid up position (full extension for next rep)
+    if (smoothedAngle !== null && smoothedAngle >= this.minUpAngle) {
+      this.reachedValidUp = true;
     }
 
     // Prevent state changes during minimum duration (anti-jitter)
@@ -436,16 +447,22 @@ export class PushUpRepCounter {
       this.state.currentPhase = 'up';
       this.state.lastPhaseChange = now;
       this.reachedValidDown = false;
+      this.reachedValidUp = true;
       this.lowestAngleInRep = 180;
       return false;
     }
 
     // State machine with validation
     if (this.state.currentPhase === 'up' && phase === 'down') {
+      // Only start new rep if we reached valid up position
+      if (!this.reachedValidUp) {
+        return false;
+      }
       // Starting descent
       this.state.currentPhase = 'down';
       this.state.lastPhaseChange = now;
       this.reachedValidDown = false;
+      this.reachedValidUp = false; // Reset for next rep
       this.lowestAngleInRep = smoothedAngle ?? 180;
       return false;
     }
@@ -462,9 +479,10 @@ export class PushUpRepCounter {
       this.state.currentPhase = 'up';
       this.state.lastPhaseChange = now;
       
-      // Only count if reached valid down position
-      if (this.reachedValidDown) {
+      // Only count if: reached valid down position AND cooldown passed
+      if (this.reachedValidDown && timeSinceLastRep >= this.minRepCooldown) {
         this.state.count++;
+        this.lastRepTime = now;
         this.lastRepQuality = this.lowestAngleInRep <= 90 ? 'good' : 'partial';
         this.reachedValidDown = false;
         this.lowestAngleInRep = 180;
@@ -510,7 +528,9 @@ export class PushUpRepCounter {
     };
     this.elbowSmoother.reset();
     this.reachedValidDown = false;
+    this.reachedValidUp = true;
     this.lowestAngleInRep = 180;
+    this.lastRepTime = 0;
     this.lastRepQuality = 'none';
     resetPhaseDetection();
   }
