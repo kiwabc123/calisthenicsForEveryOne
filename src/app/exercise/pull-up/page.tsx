@@ -128,6 +128,9 @@ export default function PullUpPage() {
     setRepCount(0);
     setAnalysis(null);
     setLastRepQuality('none');
+    // Reset timer
+    setWorkoutDuration(0);
+    startTimeRef.current = Date.now();
   };
 
   const handleDownloadVideo = () => {

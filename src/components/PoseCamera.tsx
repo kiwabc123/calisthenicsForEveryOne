@@ -173,12 +173,6 @@ const PoseCamera = forwardRef<PoseCameraRef, PoseCameraProps>(
 
         // Draw pose landmarks if detected
         if (results.poseLandmarks) {
-          // Mirror the landmarks to match the mirrored video
-          const mirroredLandmarks = results.poseLandmarks.map((lm: any) => ({
-            ...lm,
-            x: 1 - lm.x, // Mirror x coordinate (0-1 range)
-          }));
-          
           // Convert to our format and notify parent (use original for calculations)
           const landmarks: PoseLandmark[] = results.poseLandmarks.map((lm: any) => ({
             x: lm.x,
@@ -193,13 +187,13 @@ const PoseCamera = forwardRef<PoseCameraRef, PoseCameraProps>(
           const lineWidth = fullscreen ? 3 : 2;
           const radius = fullscreen ? 5 : 3;
 
-          // Draw skeleton with mirrored landmarks
-          drawConnectors(ctx, mirroredLandmarks, POSE_CONNECTIONS, {
+          // Draw skeleton - canvas context is already mirrored, so use original landmarks
+          drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, {
             color: 'rgba(0, 255, 128, 0.8)',
             lineWidth: lineWidth,
           });
 
-          drawLandmarks(ctx, mirroredLandmarks, {
+          drawLandmarks(ctx, results.poseLandmarks, {
             color: 'rgba(255, 100, 100, 0.9)',
             fillColor: 'rgba(255, 200, 200, 0.8)',
             lineWidth: 1,
@@ -370,9 +364,9 @@ const PoseCamera = forwardRef<PoseCameraRef, PoseCameraProps>(
         } : undefined}
       />
       
-      {/* Recording indicator */}
-      {isRecording && (
-        <div className="absolute top-4 left-4 flex items-center gap-2 bg-red-600/80 backdrop-blur-sm px-3 py-2 rounded-lg">
+      {/* Recording indicator - only show when NOT fullscreen (fullscreen has its own indicator in overlay) */}
+      {isRecording && !fullscreen && (
+        <div className="absolute top-4 left-4 flex items-center gap-2 bg-red-600/80 backdrop-blur-sm px-3 py-2 rounded-lg z-10">
           <div className="w-3 h-3 bg-red-400 rounded-full animate-pulse" />
           <span className="text-white text-sm font-medium">REC</span>
         </div>
