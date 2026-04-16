@@ -4,6 +4,13 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import PoseCamera, { PoseCameraRef } from '@/components/PoseCamera';
 import { PoseLandmark, FormAnalysis } from '@/types/exercise';
 import { analyzeSquatForm, SquatRepCounter, SquatVariation, getKneeAngle } from '@/lib/squatAnalyzer';
+import { 
+  unlockAudio, 
+  feedbackRepComplete, 
+  feedbackGoalReached, 
+  feedbackBadForm,
+  setSoundSettings
+} from '@/lib/sounds';
 
 // Variation descriptions
 const VARIATIONS: { id: SquatVariation; label: string; emoji: string; description: string }[] = [
@@ -22,6 +29,7 @@ export default function SquatPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [lastRepQuality, setLastRepQuality] = useState<'good' | 'partial' | 'none'>('none');
   const [isRecording, setIsRecording] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
   
   const [recordedVideo, setRecordedVideo] = useState<Blob | null>(null);
   const [showVideoModal, setShowVideoModal] = useState(false);
@@ -32,6 +40,17 @@ export default function SquatPage() {
   const poseCameraRef = useRef<PoseCameraRef>(null);
   const startTimeRef = useRef<number>(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const goalAnnouncedRef = useRef(false);
+
+  // Unlock audio on mount
+  useEffect(() => {
+    unlockAudio();
+  }, []);
+
+  // Sync sound settings
+  useEffect(() => {
+    setSoundSettings({ enabled: soundEnabled, voiceEnabled: soundEnabled });
+  }, [soundEnabled]);
 
   // Update variation in counter
   useEffect(() => {
@@ -74,10 +93,31 @@ export default function SquatPage() {
 
     const newRep = repCounterRef.current.update(formAnalysis.phase, avgKnee);
     if (newRep) {
-      setRepCount(repCounterRef.current.getCount());
-      setLastRepQuality(repCounterRef.current.getLastRepQuality());
+      const count = repCounterRef.current.getCount();
+      const quality = repCounterRef.current.getLastRepQuality();
+      setRepCount(count);
+      setLastRepQuality(quality);
+      
+      // Sound feedback for rep
+      feedbackRepComplete(quality);
+      
+      // Check if goal reached
+      if (count >= targetReps && !goalAnnouncedRef.current) {
+        goalAnnouncedRef.current = true;
+        setTimeout(() => feedbackGoalReached(), 300);
+      }
     }
-  }, [variation]);
+
+    // Bad form feedback
+    if (formAnalysis.phase === 'down' && formAnalysis.score < 60) {
+      const messages = formAnalysis.feedback.map(f => f.message);
+      if (messages.some((m: string) => m.includes('เข่า') && m.includes('ล้ำ'))) {
+        feedbackBadForm('notLowEnough');
+      } else if (messages.some((m: string) => m.includes('หลัง'))) {
+        feedbackBadForm('backNotStraight');
+      }
+    }
+  }, [variation, targetReps]);
 
   const handleRecordingComplete = useCallback((videoBlob: Blob) => {
     setRecordedVideo(videoBlob);
@@ -137,6 +177,8 @@ export default function SquatPage() {
     // Reset timer
     setWorkoutDuration(0);
     startTimeRef.current = Date.now();
+    // Reset goal announcement
+    goalAnnouncedRef.current = false;
   };
 
   const handleDownloadVideo = () => {
@@ -205,12 +247,24 @@ export default function SquatPage() {
               </div>
             </div>
             
-            <button
-              onClick={toggleFullscreen}
-              className="px-4 py-2 bg-gray-800/80 hover:bg-gray-700 text-white rounded-lg backdrop-blur-sm"
-            >
-              ⛶ ย่อ
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setSoundEnabled(!soundEnabled)}
+                className={`px-4 py-2 rounded-lg backdrop-blur-sm ${
+                  soundEnabled 
+                    ? 'bg-green-600/80 hover:bg-green-600' 
+                    : 'bg-gray-800/80 hover:bg-gray-700'
+                } text-white`}
+              >
+                {soundEnabled ? '🔊' : '🔇'}
+              </button>
+              <button
+                onClick={toggleFullscreen}
+                className="px-4 py-2 bg-gray-800/80 hover:bg-gray-700 text-white rounded-lg backdrop-blur-sm"
+              >
+                ⛶ ย่อ
+              </button>
+            </div>
           </div>
 
           {/* Large Rep Counter - center top */}
@@ -482,6 +536,17 @@ export default function SquatPage() {
               {/* Controls */}
               {isActive && !isFullscreen && (
                 <div className="flex justify-center gap-4 mt-4">
+                  <button
+                    onClick={() => setSoundEnabled(!soundEnabled)}
+                    className={`px-4 py-2 rounded-lg transition-colors ${
+                      soundEnabled 
+                        ? 'bg-green-600 hover:bg-green-700 text-white' 
+                        : 'bg-gray-600 hover:bg-gray-500 text-white'
+                    }`}
+                    title={soundEnabled ? 'ปิดเสียง' : 'เปิดเสียง'}
+                  >
+                    {soundEnabled ? '🔊' : '🔇'}
+                  </button>
                   <button
                     onClick={toggleFullscreen}
                     className={`px-6 py-2 rounded-lg transition-colors ${
