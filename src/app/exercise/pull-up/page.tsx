@@ -317,26 +317,35 @@ export default function PullUpPage() {
 
       {/* Video Modal */}
       {showVideoModal && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-800 rounded-2xl max-w-lg w-full p-6">
-            <h2 className="text-2xl font-bold mb-4 text-center">🎉 Workout สำเร็จ!</h2>
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-gray-800 rounded-2xl max-w-lg w-full p-4 sm:p-6 my-auto max-h-[95vh] overflow-y-auto relative">
+            {/* Close button - always visible */}
+            <button
+              onClick={() => setShowVideoModal(false)}
+              className="absolute top-2 right-2 w-8 h-8 bg-gray-700 hover:bg-gray-600 rounded-full flex items-center justify-center text-white text-xl z-10"
+              aria-label="ปิด"
+            >
+              ✕
+            </button>
+            
+            <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4 text-center pr-8">🎉 Workout สำเร็จ!</h2>
             
             {/* Variation badge */}
-            <div className="flex justify-center mb-4">
+            <div className="flex justify-center mb-3 sm:mb-4">
               <span className="bg-indigo-600/30 text-indigo-300 px-3 py-1 rounded-full text-sm">
                 {VARIATIONS.find(v => v.id === variation)?.emoji} {VARIATIONS.find(v => v.id === variation)?.label}
               </span>
             </div>
             
             {/* Summary */}
-            <div className="bg-gray-900 rounded-xl p-4 mb-4">
-              <div className="grid grid-cols-2 gap-4 text-center">
+            <div className="bg-gray-900 rounded-xl p-3 sm:p-4 mb-3 sm:mb-4">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 text-center">
                 <div>
-                  <div className="text-4xl font-bold text-green-400">{finalRepCount}</div>
+                  <div className="text-3xl sm:text-4xl font-bold text-green-400">{finalRepCount}</div>
                   <div className="text-gray-400 text-sm">ครั้ง</div>
                 </div>
                 <div>
-                  <div className="text-4xl font-bold text-blue-400">{formatDuration(workoutDuration)}</div>
+                  <div className="text-3xl sm:text-4xl font-bold text-blue-400">{formatDuration(workoutDuration)}</div>
                   <div className="text-gray-400 text-sm">เวลา</div>
                 </div>
               </div>
@@ -345,25 +354,25 @@ export default function PullUpPage() {
             {/* Video Preview */}
             {recordedVideo ? (
               <>
-                <div className="mb-4">
+                <div className="mb-3 sm:mb-4">
                   <video
                     src={URL.createObjectURL(recordedVideo)}
                     controls
                     className="w-full rounded-lg"
-                    style={{ maxHeight: '300px' }}
+                    style={{ maxHeight: '30vh' }}
                   />
                 </div>
                 
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-2 sm:gap-3">
                   <button
                     onClick={handleDownloadVideo}
-                    className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold flex items-center justify-center gap-2"
+                    className="w-full py-2.5 sm:py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold flex items-center justify-center gap-2"
                   >
                     📥 ดาวน์โหลดวิดีโอ
                   </button>
                   <button
                     onClick={() => setShowVideoModal(false)}
-                    className="w-full py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-semibold"
+                    className="w-full py-2.5 sm:py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-semibold"
                   >
                     ปิด
                   </button>
@@ -371,14 +380,14 @@ export default function PullUpPage() {
               </>
             ) : (
               <>
-                <div className="mb-4 bg-gray-900/50 rounded-lg p-6 text-center">
-                  <div className="text-4xl mb-2">📷</div>
-                  <p className="text-gray-400">ไม่มีวิดีโอ</p>
+                <div className="mb-3 sm:mb-4 bg-gray-900/50 rounded-lg p-4 sm:p-6 text-center">
+                  <div className="text-3xl sm:text-4xl mb-2">📷</div>
+                  <p className="text-gray-400 text-sm">ไม่มีวิดีโอ</p>
                 </div>
                 
                 <button
                   onClick={() => setShowVideoModal(false)}
-                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold"
+                  className="w-full py-2.5 sm:py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold"
                 >
                   ตกลง
                 </button>

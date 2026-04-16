@@ -253,41 +253,50 @@ export default function HandstandPage() {
 
       {/* Result Modal */}
       {showResultModal && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-800 rounded-2xl max-w-lg w-full p-6">
-            <div className="text-center mb-4">
-              <div className="text-6xl mb-2">{getResultMessage().emoji}</div>
-              <h2 className="text-2xl font-bold">{getResultMessage().title}</h2>
-              <p className="text-gray-400">{getResultMessage().subtitle}</p>
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-gray-800 rounded-2xl max-w-lg w-full p-4 sm:p-6 my-auto max-h-[95vh] overflow-y-auto relative">
+            {/* Close button - always visible */}
+            <button
+              onClick={() => setShowResultModal(false)}
+              className="absolute top-2 right-2 w-8 h-8 bg-gray-700 hover:bg-gray-600 rounded-full flex items-center justify-center text-white text-xl z-10"
+              aria-label="ปิด"
+            >
+              ✕
+            </button>
+            
+            <div className="text-center mb-3 sm:mb-4">
+              <div className="text-5xl sm:text-6xl mb-2">{getResultMessage().emoji}</div>
+              <h2 className="text-xl sm:text-2xl font-bold pr-8">{getResultMessage().title}</h2>
+              <p className="text-gray-400 text-sm">{getResultMessage().subtitle}</p>
             </div>
             
             {/* Variation badge */}
-            <div className="flex justify-center mb-4">
+            <div className="flex justify-center mb-3 sm:mb-4">
               <span className="bg-purple-600/30 text-purple-300 px-3 py-1 rounded-full text-sm">
                 {VARIATIONS.find(v => v.id === variation)?.emoji} {VARIATIONS.find(v => v.id === variation)?.label}
               </span>
             </div>
             
             {/* Stats */}
-            <div className="bg-gray-900 rounded-xl p-4 mb-4">
-              <div className="grid grid-cols-2 gap-4 text-center">
+            <div className="bg-gray-900 rounded-xl p-3 sm:p-4 mb-3 sm:mb-4">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 text-center">
                 <div>
-                  <div className="text-4xl font-mono font-bold text-green-400">
+                  <div className="text-3xl sm:text-4xl font-mono font-bold text-green-400">
                     {formatTime(currentTime)}
                   </div>
-                  <div className="text-gray-400 text-sm">เวลาที่ทำได้</div>
+                  <div className="text-gray-400 text-xs sm:text-sm">เวลาที่ทำได้</div>
                 </div>
                 <div>
-                  <div className="text-4xl font-mono font-bold text-blue-400">
+                  <div className="text-3xl sm:text-4xl font-mono font-bold text-blue-400">
                     {formatTime(targetTime * 1000)}
                   </div>
-                  <div className="text-gray-400 text-sm">เป้าหมาย</div>
+                  <div className="text-gray-400 text-xs sm:text-sm">เป้าหมาย</div>
                 </div>
               </div>
               
               {bestTime > 0 && (
-                <div className="mt-4 text-center border-t border-gray-700 pt-4">
-                  <div className="text-2xl font-mono text-yellow-400">
+                <div className="mt-3 sm:mt-4 text-center border-t border-gray-700 pt-3 sm:pt-4">
+                  <div className="text-xl sm:text-2xl font-mono text-yellow-400">
                     🏆 Best: {formatTime(bestTime)}
                   </div>
                 </div>
@@ -296,22 +305,22 @@ export default function HandstandPage() {
             
             {/* Video Preview */}
             {recordedVideo && (
-              <div className="mb-4">
+              <div className="mb-3 sm:mb-4">
                 <video
                   src={URL.createObjectURL(recordedVideo)}
                   controls
                   className="w-full rounded-lg"
-                  style={{ maxHeight: '200px' }}
+                  style={{ maxHeight: '25vh' }}
                 />
               </div>
             )}
             
             {/* Actions */}
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2 sm:gap-3">
               {recordedVideo && (
                 <button
                   onClick={handleDownloadVideo}
-                  className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold"
+                  className="w-full py-2.5 sm:py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold"
                 >
                   📥 ดาวน์โหลดวิดีโอ
                 </button>
@@ -321,13 +330,13 @@ export default function HandstandPage() {
                   setShowResultModal(false);
                   handleStart(true);
                 }}
-                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold"
+                className="w-full py-2.5 sm:py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold"
               >
                 🔄 ลองอีกครั้ง
               </button>
               <button
                 onClick={() => setShowResultModal(false)}
-                className="w-full py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-semibold"
+                className="w-full py-2.5 sm:py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-semibold"
               >
                 ปิด
               </button>

@@ -65,10 +65,11 @@ export default function MuscleMap({
   const primary = muscles?.primary || highlightPrimary;
   const secondary = muscles?.secondary || highlightSecondary;
 
-  const sizeClass = {
-    sm: 'w-16 h-24',
-    md: 'w-24 h-36',
-    lg: 'w-32 h-48',
+  // Use inline styles for precise aspect ratio (100:150 = 2:3)
+  const sizeStyle = {
+    sm: { width: '48px', height: '72px' },
+    md: { width: '80px', height: '120px' },
+    lg: { width: '112px', height: '168px' },
   }[size];
 
   const getMuscleColor = (muscle: MuscleGroup) => {
@@ -87,7 +88,8 @@ export default function MuscleMap({
     return (
       <svg
         viewBox="0 0 100 150"
-        className={`${sizeClass} ${className}`}
+        style={sizeStyle}
+        className={className}
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
@@ -232,7 +234,8 @@ export default function MuscleMap({
   return (
     <svg
       viewBox="0 0 100 150"
-      className={`${sizeClass} ${className}`}
+      style={sizeStyle}
+      className={className}
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
     >
