@@ -11,6 +11,7 @@ import {
   feedbackBadForm,
   setSoundSettings
 } from '@/lib/sounds';
+import MuscleMap, { MuscleLegend } from '@/components/MuscleMap';
 
 // Variation descriptions
 const VARIATIONS: { id: PullUpVariation; label: string; emoji: string; description: string }[] = [
@@ -450,7 +451,13 @@ export default function PullUpPage() {
               ) : (
                 <div className="aspect-video bg-gray-900 rounded-lg flex items-center justify-center">
                   <div className="text-center">
-                    <div className="text-6xl mb-4">🏋️</div>
+                    {/* Muscle Map */}
+                    <div className="flex justify-center gap-2 mb-4">
+                      <MuscleMap exercise="pull-up" view="front" size="md" />
+                      <MuscleMap exercise="pull-up" view="back" size="md" />
+                    </div>
+                    <MuscleLegend className="justify-center text-gray-400 mb-4" />
+                    
                     <p className="text-gray-400 mb-4">เลือกรูปแบบและจำนวนครั้ง</p>
                     
                     {/* Variation selector */}

@@ -10,6 +10,7 @@ import {
   BarChart3,
   type LucideIcon
 } from "lucide-react";
+import MuscleMap from "@/components/MuscleMap";
 
 const exercises: {
   id: string;
@@ -200,30 +201,38 @@ function ExerciseCardContent({ exercise }: { exercise: typeof exercises[0] }) {
   const IconComponent = exercise.icon;
   
   return (
-    <>
-      <div className="flex items-center gap-4 mb-4">
-        <div className={`p-3 rounded-xl ${exercise.iconBg} transition-transform group-hover:scale-110`}>
-          <IconComponent className="w-8 h-8" strokeWidth={1.5} />
-        </div>
-        <div>
-          <h3 className="text-xl font-semibold text-white">{exercise.nameLocal}</h3>
-          <p className="text-gray-400 text-sm">{exercise.name}</p>
-        </div>
+    <div className="flex gap-4">
+      {/* Muscle Map */}
+      <div className="flex-shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
+        <MuscleMap exercise={exercise.id} view="front" size="sm" />
       </div>
-      <div className="flex flex-wrap gap-2 mb-3">
-        {exercise.muscleGroups.map((muscle) => (
-          <span
-            key={muscle}
-            className="bg-white/10 text-gray-200 text-xs px-2 py-1 rounded-full"
-          >
-            {muscle}
-          </span>
-        ))}
+      
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-3 mb-3">
+          <div className={`p-2 rounded-lg ${exercise.iconBg} transition-transform group-hover:scale-110`}>
+            <IconComponent className="w-6 h-6" strokeWidth={1.5} />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-white">{exercise.nameLocal}</h3>
+            <p className="text-gray-400 text-xs">{exercise.name}</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {exercise.muscleGroups.map((muscle) => (
+            <span
+              key={muscle}
+              className="bg-white/10 text-gray-200 text-xs px-2 py-0.5 rounded-full"
+            >
+              {muscle}
+            </span>
+          ))}
+        </div>
+        <p className="text-xs text-gray-400">
+          ระดับ: <span className={exercise.accent}>{exercise.difficulty}</span>
+        </p>
       </div>
-      <p className="text-sm text-gray-400">
-        ระดับ: <span className={exercise.accent}>{exercise.difficulty}</span>
-      </p>
-    </>
+    </div>
   );
 }
 

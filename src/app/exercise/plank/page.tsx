@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import PoseCamera, { PoseCameraRef } from '@/components/PoseCamera';
 import { PoseLandmark, FormAnalysis } from '@/types/exercise';
 import { analyzePlankForm, PlankTracker, PlankVariation } from '@/lib/plankAnalyzer';
+import MuscleMap, { MuscleLegend } from '@/components/MuscleMap';
 
 // Variation descriptions
 const VARIATIONS: { id: PlankVariation; label: string; emoji: string; description: string }[] = [
@@ -392,7 +393,13 @@ export default function PlankPage() {
               ) : !isActive ? (
                 <div className="aspect-video bg-gray-900 rounded-lg flex items-center justify-center">
                   <div className="text-center">
-                    <div className="text-6xl mb-4">🧘</div>
+                    {/* Muscle Map */}
+                    <div className="flex justify-center gap-2 mb-4">
+                      <MuscleMap exercise="plank" view="front" size="md" />
+                      <MuscleMap exercise="plank" view="back" size="md" />
+                    </div>
+                    <MuscleLegend className="justify-center text-gray-400 mb-4" />
+                    
                     <p className="text-gray-400 mb-4">เลือกรูปแบบและเวลาที่ต้องการฝึก</p>
                     
                     {/* Variation selector */}
