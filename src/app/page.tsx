@@ -127,6 +127,16 @@ export default function Home() {
         </div>
       </header>
 
+      {/* Donate tab */}
+      <div className="flex justify-end mt-4">
+        <Link
+          href="/support"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-bold rounded-lg text-sm shadow transition-colors"
+        >
+          <span>☕ เลี้ยงกาแฟ</span>
+        </Link>
+      </div>
+
       {/* Exercise cards */}
       <main className="max-w-6xl mx-auto px-4 py-12">
         <h2 className="text-2xl font-semibold mb-6">เลือกท่าที่ต้องการฝึก</h2>
