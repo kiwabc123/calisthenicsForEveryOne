@@ -22,9 +22,18 @@ export default function LoginPage() {
     try {
       await signInWithGoogle();
       router.push('/');
-    } catch (err) {
-      setError('เกิดข้อผิดพลาดในการเข้าสู่ระบบ กรุณาลองใหม่');
-      console.error(err);
+    } catch (err: unknown) {
+      const firebaseError = err as { code?: string; message?: string };
+      if (firebaseError.code === 'auth/popup-closed-by-user') {
+        setError('คุณปิด popup ก่อนเข้าสู่ระบบ');
+      } else if (firebaseError.code === 'auth/operation-not-allowed') {
+        setError('Google Sign-In ยังไม่เปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ');
+      } else if (firebaseError.code === 'auth/unauthorized-domain') {
+        setError('Domain นี้ยังไม่ได้รับอนุญาต กรุณาเพิ่มใน Firebase Console');
+      } else {
+        setError(`เกิดข้อผิดพลาด: ${firebaseError.code || firebaseError.message || 'ไม่ทราบสาเหตุ'}`);
+      }
+      console.error('Login error:', err);
     } finally {
       setIsSigningIn(false);
     }
