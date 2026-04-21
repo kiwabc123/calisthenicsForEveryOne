@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function SupportPage() {
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-4">
@@ -28,6 +30,12 @@ export default function SupportPage() {
         <p className="text-gray-500 text-xs text-center">
           หรือจะส่งกำลังใจผ่านช่องทางอื่น ๆ แจ้งได้เลย!
         </p>
+         <Link
+          href="/"
+          className="mt-6 w-full py-2 bg-gray-700 hover:bg-gray-600 text-yellow-300 font-semibold rounded-lg text-base shadow transition-colors text-center"
+        >
+          ← กลับหน้าแรก
+        </Link>
       </div>
     </div>
   );

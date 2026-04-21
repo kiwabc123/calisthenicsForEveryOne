@@ -1,4 +1,7 @@
+
 # FitForm - AI Pose Detection Fitness App 🏋️
+
+🌐 **Live Demo:** [https://calisthenics-trainer.com/](https://calisthenics-trainer.com/)
 
 Real-time exercise form analysis using AI pose detection. Get instant feedback on your workout form and track your progress.
 
