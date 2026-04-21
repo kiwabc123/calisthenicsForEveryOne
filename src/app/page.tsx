@@ -88,7 +88,7 @@ const exercises: {
   {
     id: 'handstand',
     name: 'Handstand',
-    nameLocal: 'ยืนมือ',
+    nameLocal: 'หกสูง (แฮนด์สแตนด์)',
     icon: FlipVertical2,
     difficulty: 'ยาก',
     muscleGroups: ['ไหล่', 'แขน', 'แกนกลาง'],
@@ -137,15 +137,17 @@ export default function Home() {
       <div className="flex justify-end gap-2 mt-4">
         <Link
           href="/support"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-bold rounded-lg text-sm shadow transition-colors"
+          aria-label="ไปหน้าสนับสนุน เลี้ยงกาแฟ"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-bold rounded-lg text-sm shadow transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500"
         >
-          <span>☕ เลี้ยงกาแฟ</span>
+          <span aria-hidden="true">☕ เลี้ยงกาแฟ</span>
         </Link>
         <Link
           href="/report"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-400 text-white font-bold rounded-lg text-sm shadow transition-colors"
+          aria-label="ไปหน้าแจ้งปัญหา ติดต่อผู้พัฒนา"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg text-sm shadow transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
         >
-          <span>📢 แจ้งปัญหา</span>
+          <span aria-hidden="true">📢 แจ้งปัญหา</span>
         </Link>
       </div>
 
@@ -153,10 +155,10 @@ export default function Home() {
       {/* Exercise cards */}
       <main className="max-w-6xl mx-auto px-4 py-12">
 
-        <h2 className="text-2xl font-semibold mb-6">เลือกท่าที่ต้องการฝึก</h2>
+        <h2 className="text-2xl font-semibold mb-6" id="choose-exercise">เลือกท่าที่ต้องการฝึก</h2>
 
         {/* Bodyweight section */}
-        <h3 className="text-xl font-bold mt-8 mb-4 text-rose-300">Bodyweight</h3>
+        <h3 className="text-xl font-bold mt-8 mb-4 text-rose-300" id="bodyweight-section">Bodyweight</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-8">
           {exercises.filter(e => e.cate === 'bodyweight').map((exercise) => (
             <div
@@ -184,7 +186,7 @@ export default function Home() {
         </div>
 
         {/* Calisthenics section */}
-        <h3 className="text-xl font-bold mt-8 mb-4 text-violet-300">Calisthenics</h3>
+        <h3 className="text-xl font-bold mt-8 mb-4 text-violet-300" id="calist-section">Calisthenics</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {exercises.filter(e => e.cate === 'calist').map((exercise) => (
             <div
@@ -196,7 +198,7 @@ export default function Home() {
               }`}
             >
               {exercise.available ? (
-                <Link href={`/exercise/${exercise.id}`} className="block">
+                <Link href={`/exercise/${exercise.id}`} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400" aria-label={`ไปหน้าฝึก ${exercise.nameLocal}`}> 
                   <ExerciseCardContent exercise={exercise} />
                 </Link>
               ) : (
