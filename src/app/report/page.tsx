@@ -1,4 +1,6 @@
 // หน้าแจ้งปัญหา/ติดต่อผู้พัฒนา (Formspree)
+import Link from "next/link";
+
 export default function ReportPage() {
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-4">
@@ -43,13 +45,12 @@ export default function ReportPage() {
           ข้อมูลจะถูกส่งไปที่ tiradet.jq@gmail.com ผ่าน Formspree<br />
           <a href="mailto:tiradet.jq@gmail.com" className="underline text-yellow-300 hover:text-yellow-400">ติดต่ออีเมลโดยตรง</a>
         </p>
-        <button
-          type="button"
-          onClick={() => window.location.href = '/'}
-          className="mt-6 w-full py-2 bg-gray-700 hover:bg-gray-600 text-yellow-300 font-semibold rounded-lg text-base shadow transition-colors"
+        <Link
+          href="/"
+          className="mt-6 w-full py-2 bg-gray-700 hover:bg-gray-600 text-yellow-300 font-semibold rounded-lg text-base shadow transition-colors text-center"
         >
           ← กลับหน้าแรก
-        </button>
+        </Link>
       </div>
     </div>
   );
