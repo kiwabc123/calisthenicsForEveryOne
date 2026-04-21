@@ -43,6 +43,13 @@ export default function ReportPage() {
           ข้อมูลจะถูกส่งไปที่ tiradet.jq@gmail.com ผ่าน Formspree<br />
           <a href="mailto:tiradet.jq@gmail.com" className="underline text-yellow-300 hover:text-yellow-400">ติดต่ออีเมลโดยตรง</a>
         </p>
+        <button
+          type="button"
+          onClick={() => window.location.href = '/'}
+          className="mt-6 w-full py-2 bg-gray-700 hover:bg-gray-600 text-yellow-300 font-semibold rounded-lg text-base shadow transition-colors"
+        >
+          ← กลับหน้าแรก
+        </button>
       </div>
     </div>
   );
