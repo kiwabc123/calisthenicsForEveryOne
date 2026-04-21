@@ -127,13 +127,19 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Donate tab */}
-      <div className="flex justify-end mt-4">
+      {/* Donate & Report tab */}
+      <div className="flex justify-end gap-2 mt-4">
         <Link
           href="/support"
           className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-bold rounded-lg text-sm shadow transition-colors"
         >
           <span>☕ เลี้ยงกาแฟ</span>
+        </Link>
+        <Link
+          href="/report"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-400 text-white font-bold rounded-lg text-sm shadow transition-colors"
+        >
+          <span>📢 แจ้งปัญหา</span>
         </Link>
       </div>
 
