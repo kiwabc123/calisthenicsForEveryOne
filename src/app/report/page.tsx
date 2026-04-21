@@ -8,7 +8,7 @@ export default function ReportPage() {
           หากพบปัญหา ข้อเสนอแนะ หรืออยากติดต่อทีมงาน<br />กรอกฟอร์มนี้ได้เลย
         </p>
         <form
-          action="https://formspree.io/f/xwkdygqg" // เปลี่ยนเป็น formspree ของคุณถ้าต้องการ
+          action="https://formspree.io/f/xqewdgod" // อัปเดต Formspree Form ID ใหม่
           method="POST"
           className="w-full flex flex-col gap-4"
         >
