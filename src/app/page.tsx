@@ -26,6 +26,7 @@ const exercises: {
   border: string;
   accent: string;
   iconBg: string;
+  cate: "bodyweight" | "calist";
 }[] = [
   {
     id: 'push-up',
@@ -39,33 +40,7 @@ const exercises: {
     border: 'border-rose-500/30',
     accent: 'text-rose-400',
     iconBg: 'bg-rose-500/20 text-rose-400',
-  },
-  {
-    id: 'handstand',
-    name: 'Handstand',
-    nameLocal: 'ยืนมือ',
-    icon: FlipVertical2,
-    difficulty: 'ยาก',
-    muscleGroups: ['ไหล่', 'แขน', 'แกนกลาง'],
-    available: true,
-    isTimeBased: true,
-    gradient: 'from-violet-500/20 to-purple-500/20',
-    border: 'border-violet-500/30',
-    accent: 'text-violet-400',
-    iconBg: 'bg-violet-500/20 text-violet-400',
-  },
-  {
-    id: 'pull-up',
-    name: 'Pull-up',
-    nameLocal: 'ดึงข้อ',
-    icon: TrendingUp,
-    difficulty: 'ปานกลาง',
-    muscleGroups: ['หลัง', 'แขน'],
-    available: true,
-    gradient: 'from-blue-500/20 to-cyan-500/20',
-    border: 'border-blue-500/30',
-    accent: 'text-blue-400',
-    iconBg: 'bg-blue-500/20 text-blue-400',
+    cate: 'bodyweight',
   },
   {
     id: 'squat',
@@ -79,6 +54,7 @@ const exercises: {
     border: 'border-amber-500/30',
     accent: 'text-amber-400',
     iconBg: 'bg-amber-500/20 text-amber-400',
+    cate: 'bodyweight',
   },
   {
     id: 'plank',
@@ -93,6 +69,36 @@ const exercises: {
     border: 'border-emerald-500/30',
     accent: 'text-emerald-400',
     iconBg: 'bg-emerald-500/20 text-emerald-400',
+    cate: 'bodyweight',
+  },
+  {
+    id: 'pull-up',
+    name: 'Pull-up',
+    nameLocal: 'ดึงข้อ',
+    icon: TrendingUp,
+    difficulty: 'ปานกลาง',
+    muscleGroups: ['หลัง', 'แขน'],
+    available: true,
+    gradient: 'from-blue-500/20 to-cyan-500/20',
+    border: 'border-blue-500/30',
+    accent: 'text-blue-400',
+    iconBg: 'bg-blue-500/20 text-blue-400',
+    cate: 'calist',
+  },
+  {
+    id: 'handstand',
+    name: 'Handstand',
+    nameLocal: 'ยืนมือ',
+    icon: FlipVertical2,
+    difficulty: 'ยาก',
+    muscleGroups: ['ไหล่', 'แขน', 'แกนกลาง'],
+    available: true,
+    isTimeBased: true,
+    gradient: 'from-violet-500/20 to-purple-500/20',
+    border: 'border-violet-500/30',
+    accent: 'text-violet-400',
+    iconBg: 'bg-violet-500/20 text-violet-400',
+    cate: 'calist',
   },
 ];
 
@@ -146,9 +152,41 @@ export default function Home() {
 
       {/* Exercise cards */}
       <main className="max-w-6xl mx-auto px-4 py-12">
+
         <h2 className="text-2xl font-semibold mb-6">เลือกท่าที่ต้องการฝึก</h2>
+
+        {/* Bodyweight section */}
+        <h3 className="text-xl font-bold mt-8 mb-4 text-rose-300">Bodyweight</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-8">
+          {exercises.filter(e => e.cate === 'bodyweight').map((exercise) => (
+            <div
+              key={exercise.id}
+              className={`group relative bg-gradient-to-br ${exercise.gradient} backdrop-blur-sm rounded-xl p-4 md:p-6 border ${exercise.border} transition-all duration-300 ${
+                exercise.available
+                  ? 'hover:scale-[1.03] hover:shadow-lg hover:shadow-black/20 cursor-pointer'
+                  : 'opacity-60'
+              }`}
+            >
+              {exercise.available ? (
+                <Link href={`/exercise/${exercise.id}`} className="block">
+                  <ExerciseCardContent exercise={exercise} />
+                </Link>
+              ) : (
+                <div className="relative">
+                  <ExerciseCardContent exercise={exercise} />
+                  <span className="absolute top-0 right-0 bg-gray-600/80 backdrop-blur-sm text-xs px-2 py-1 rounded">
+                    เร็วๆ นี้
+                  </span>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Calisthenics section */}
+        <h3 className="text-xl font-bold mt-8 mb-4 text-violet-300">Calisthenics</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-          {exercises.map((exercise) => (
+          {exercises.filter(e => e.cate === 'calist').map((exercise) => (
             <div
               key={exercise.id}
               className={`group relative bg-gradient-to-br ${exercise.gradient} backdrop-blur-sm rounded-xl p-4 md:p-6 border ${exercise.border} transition-all duration-300 ${
