@@ -143,10 +143,10 @@ export default function Home() {
         </Link>
       </div>
 
+
       {/* Exercise cards */}
       <main className="max-w-6xl mx-auto px-4 py-12">
         <h2 className="text-2xl font-semibold mb-6">เลือกท่าที่ต้องการฝึก</h2>
-        
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {exercises.map((exercise) => (
             <div
@@ -172,6 +172,19 @@ export default function Home() {
             </div>
           ))}
         </div>
+
+        {/* Advanced Skills Section */}
+        <section className="mt-16">
+          <div className="bg-gradient-to-br from-yellow-900/30 to-yellow-800/10 border border-yellow-700/30 rounded-2xl p-8 flex flex-col items-center shadow-lg">
+            <h2 className="text-2xl font-bold mb-2 text-yellow-300 flex items-center gap-2">
+              🏆 สกิลระดับยากและท้าทาย
+            </h2>
+            <p className="text-yellow-100 mb-4 text-center">
+              ฟีเจอร์สำหรับสกิลขั้นสูง เช่น Handstand, Planche, Muscle-up, Front Lever และอื่น ๆ<br />
+              <span className="text-yellow-400 font-semibold">จะมีอัปเดตในอนาคต!</span>
+            </p>
+          </div>
+        </section>
 
         {/* Features */}
         <section className="mt-16">
