@@ -53,7 +53,6 @@ export default function RootLayout({
         <AuthProvider>
           <ServiceWorkerRegister />
           {children}
-          <SpeedInsights />
           <Analytics />
           <SpeedInsights />
         </AuthProvider>
