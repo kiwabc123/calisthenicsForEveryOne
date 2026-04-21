@@ -139,7 +139,7 @@ export default function Home() {
           href="/report"
           className="inline-flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-400 text-white font-bold rounded-lg text-sm shadow transition-colors"
         >
-          <span>📢 แจ้งปัญหา</span>
+          <span>📢 แจ้งปัญหาการใช้งาน</span>
         </Link>
       </div>
 
